@@ -1,0 +1,5 @@
+node_modules
+deploy-token.mjs
+dist
+.DS_Store
+.env
