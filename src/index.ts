@@ -3,10 +3,6 @@ import type { Db } from 'mongodb'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 
 import { inspect } from 'util'
-import { SlashCommandBuilder } from '@discordjs/builders'
-import { REST } from '@discordjs/rest'
-import { Routes } from 'discord-api-types/v9'
-import { clientId, guildId } from './config'
 import {
   getGitHubAuthorizeUrl,
   getGitHubProfile,
@@ -14,8 +10,9 @@ import {
 } from './github-linking'
 import { verifyIdToken } from './id-token'
 import { enhanceError } from './enhance-error'
+import { deployCommands } from './deploy-commands'
 
-interface BotContext {
+export interface BotContext {
   discordToken: string
   client: Client
   db: Db
@@ -168,37 +165,4 @@ export async function handleHttpRequest(
     return `Successfully linked GitHub account "@${user.login}" for Discord user "${owner.discordTag}"`
   }
   return 'unknown action'
-}
-
-async function deployCommands(context: BotContext) {
-  const commands = [
-    new SlashCommandBuilder()
-      .setName('showdown')
-      .setDescription('Talk to showdown.space bot')
-      .addSubcommand((subcommand) =>
-        subcommand.setName('ping').setDescription('Replies with pong'),
-      )
-      .addSubcommand((subcommand) =>
-        subcommand
-          .setName('link-github')
-          .setDescription('Link your GitHub Account'),
-      )
-      .addSubcommand((subcommand) =>
-        subcommand
-          .setName('set')
-          .setDescription('Set user profile info')
-          .addStringOption((o) =>
-            o.setName('key').setDescription('Key to set').setRequired(true),
-          )
-          .addStringOption((o) =>
-            o.setName('value').setDescription('Value to set').setRequired(true),
-          ),
-      ),
-  ].map((command) => command.toJSON())
-
-  const rest = new REST({ version: '9' }).setToken(context.discordToken)
-  await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
-    body: commands,
-  })
-  return 'Successfully registered application commands.'
 }
