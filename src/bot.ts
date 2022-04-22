@@ -143,6 +143,7 @@ export class Reply {
         ephemeral: true,
         ...this.extraParams,
       })
+      this.written = true
     }
   }
 
@@ -164,6 +165,17 @@ export class Reply {
 
   withComponents(...components: NonNullable<MessageOptions['components']>) {
     this.extraParams.components = components
+    return this
+  }
+
+  withLink(title: string, description: string, url: string) {
+    this.extraParams.embeds = [
+      {
+        title,
+        description,
+        url,
+      },
+    ]
     return this
   }
 }

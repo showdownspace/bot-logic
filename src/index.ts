@@ -20,6 +20,7 @@ import { Bot, CommandHandler } from './bot'
 const bot = new Bot()
 
 bot.handleCommand('/showdown ping', async (context, interaction, reply) => {
+  await reply.wait('wait for it')
   await reply.ok('pong')
 })
 
@@ -41,9 +42,11 @@ bot.handleCommand('/showdown profile', async (context, interaction, reply) => {
 })
 bot.handleButton('link-github', async (context, interaction, reply) => {
   const url = await getGitHubAuthorizeUrl(interaction.user)
-  await reply.please(
-    `Please go to this URL to link your GitHub account: :arrow_down:\n${url}`,
-  )
+  await reply
+    .withLink('Click here to link your GitHub account', url, url)
+    .please(
+      `Please click the link below to link your GitHub account: :arrow_down:`,
+    )
 })
 bot.handleHttpAction('callback/github', async (context, request, reply) => {
   const { db } = context
