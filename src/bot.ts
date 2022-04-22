@@ -4,10 +4,13 @@ import {
   Interaction,
   MessageOptions,
 } from 'discord.js'
+import type { FastifyReply, FastifyRequest } from 'fastify'
 import { BotContext } from './types'
 
 export class Bot {
   interactionProcessors: InteractionProcessor[] = []
+  httpRequestProcessors: HttpRequestProcessor[] = []
+
   handleCommand(pattern: string, commandHandler: CommandHandler) {
     this.interactionProcessors.push((context, interaction) => {
       if (!interaction.isCommand()) {
@@ -33,6 +36,41 @@ export class Bot {
       }
     })
   }
+  handleButton(customId: string, buttonHandler: ButtonHandler) {
+    this.interactionProcessors.push((context, interaction) => {
+      if (!interaction.isButton()) {
+        return
+      }
+      if (interaction.customId !== customId) {
+        return
+      }
+      return async () => {
+        const reply: Reply = new Reply(interaction)
+        try {
+          await buttonHandler(context, interaction, reply)
+        } catch (error) {
+          reply.fail(`An error has occurred.`)
+          context.log.error(
+            { err: error },
+            'Unable to handle button ' + customId,
+          )
+        }
+      }
+    })
+  }
+  handleHttpAction(actionName: string, actionHandler: HttpActionHandler) {
+    this.httpRequestProcessors.push((context, request, reply) => {
+      const query = request.query as
+        | Record<string, string | undefined>
+        | undefined
+      if (query?.action !== actionName) {
+        return
+      }
+      return async () => {
+        return actionHandler(context, request, reply)
+      }
+    })
+  }
 
   async processInteraction(context: BotContext, interaction: Interaction) {
     for (const processor of this.interactionProcessors) {
@@ -44,6 +82,19 @@ export class Bot {
     }
     return false
   }
+  async processHttpRequest(
+    context: BotContext,
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ) {
+    for (const processor of this.httpRequestProcessors) {
+      const handler = processor(context, request, reply)
+      if (handler) {
+        return await handler()
+      }
+    }
+    return 'unknown action'
+  }
 }
 
 export type InteractionProcessor = (
@@ -51,11 +102,29 @@ export type InteractionProcessor = (
   interaction: Interaction,
 ) => (() => Promise<void>) | void
 
+export type HttpRequestProcessor = (
+  context: BotContext,
+  request: FastifyRequest,
+  reply: FastifyReply,
+) => (() => Promise<any>) | void
+
 export type CommandHandler = (
   context: BotContext,
   interaction: CommandInteraction,
   reply: Reply,
 ) => Promise<void>
+
+export type ButtonHandler = (
+  context: BotContext,
+  interaction: ButtonInteraction,
+  reply: Reply,
+) => Promise<void>
+
+export type HttpActionHandler = (
+  context: BotContext,
+  request: FastifyRequest,
+  reply: FastifyReply,
+) => Promise<any>
 
 export class Reply {
   private extraParams: any = {}

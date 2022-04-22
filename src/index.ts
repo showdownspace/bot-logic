@@ -39,6 +39,45 @@ bot.handleCommand('/showdown profile', async (context, interaction, reply) => {
     })
     .ok('Here is your profile: ```' + JSON.stringify(profile, null, 2) + '```')
 })
+bot.handleButton('link-github', async (context, interaction, reply) => {
+  const url = await getGitHubAuthorizeUrl(interaction.user)
+  await reply.please(
+    `Please go to this URL to link your GitHub account: :arrow_down:\n${url}`,
+  )
+})
+bot.handleHttpAction('callback/github', async (context, request, reply) => {
+  const { db } = context
+  const query = request.query as Record<string, string>
+  const code = String(query.code)
+  const state = String(query.state)
+  const owner = await verifyIdToken(
+    state,
+    'showdownspace-bot/github-linking',
+  ).catch(enhanceError('Unable to verify ID token'))
+  const { accessToken } = await verifyGitHubCode(code)
+  const user = await getGitHubProfile(accessToken)
+  await db.collection('profiles').updateOne(
+    { _id: `discord${owner.discordId}` },
+    {
+      $set: {
+        discordUserId: owner.discordId,
+        discordTag: owner.discordTag,
+        githubUser: {
+          login: user.login,
+          id: user.id,
+          avatar_url: user.avatar_url,
+          name: user.name,
+        },
+      },
+    },
+    { upsert: true },
+  )
+  return `Successfully linked GitHub account "@${user.login}" for Discord user "${owner.discordTag}"`
+})
+bot.handleButton('unlink-github', async (context, interaction, reply) => {
+  await syncProfile(context, interaction.user, { githubUser: null })
+  await reply.ok(`Unassociated your GitHub account from your Discord ID.`)
+})
 
 bot.handleCommand(
   '/showdown register-email',
@@ -110,38 +149,23 @@ bot.handleCommand('/answer b', createAnswerHandler('B'))
 bot.handleCommand('/answer c', createAnswerHandler('C'))
 bot.handleCommand('/answer d', createAnswerHandler('D'))
 
+bot.handleHttpAction('encrypt', async (context, request, reply) => {
+  const text = (request.body as Record<string, string> | undefined)?.text
+  if (text) {
+    return 'encrypted`' + encrypted.encrypt(String(text)) + '`'
+  }
+  reply.header('Content-Type', 'text/html')
+  return `<html><form method="post">
+  <textarea name="text" rows="10" cols="80"></textarea>
+  <input type="submit" value="Encrypt" />`
+})
+
 export async function handleInteraction(
   context: BotContext,
   interaction: Interaction,
 ) {
-  const { db, log } = context
   if (!interaction.guild) return
-  if (await bot.processInteraction(context, interaction)) {
-    return
-  }
-
-  if (interaction.isButton()) {
-    log.info(
-      { customId: interaction.customId, user: interaction.user.tag },
-      'Button interaction received',
-    )
-    if (interaction.customId === 'link-github') {
-      const url = await getGitHubAuthorizeUrl(interaction.user)
-      await interaction.reply({
-        content: `:pleading_face: Please go to this URL to link your GitHub account: :arrow_down:\n${url}`,
-        ephemeral: true,
-      })
-    } else if (interaction.customId === 'unlink-github') {
-      const user = interaction.user
-      await db
-        .collection('profiles')
-        .updateOne({ _id: `discord${user.id}` }, { $unset: { githubUser: '' } })
-      await interaction.reply({
-        content: `:pleading_face: Unassociated your GitHub account from your Discord ID.`,
-        ephemeral: true,
-      })
-    }
-  }
+  await bot.processInteraction(context, interaction)
 }
 
 export async function handleMessage(context: BotContext, message: Message) {
@@ -207,47 +231,5 @@ export async function handleHttpRequest(
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
-  const { db } = context
-  const query = request.query as Record<string, string | undefined>
-
-  if (query.action === 'callback/github') {
-    const code = String(query.code)
-    const state = String(query.state)
-    const owner = await verifyIdToken(
-      state,
-      'showdownspace-bot/github-linking',
-    ).catch(enhanceError('Unable to verify ID token'))
-    const { accessToken } = await verifyGitHubCode(code)
-    const user = await getGitHubProfile(accessToken)
-    await db.collection('profiles').updateOne(
-      { _id: `discord${owner.discordId}` },
-      {
-        $set: {
-          discordUserId: owner.discordId,
-          discordTag: owner.discordTag,
-          githubUser: {
-            login: user.login,
-            id: user.id,
-            avatar_url: user.avatar_url,
-            name: user.name,
-          },
-        },
-      },
-      { upsert: true },
-    )
-    return `Successfully linked GitHub account "@${user.login}" for Discord user "${owner.discordTag}"`
-  }
-
-  if (query.action === 'encrypt') {
-    const text = (request.body as Record<string, string> | undefined)?.text
-    if (text) {
-      return 'encrypted`' + encrypted.encrypt(String(text)) + '`'
-    }
-    reply.header('Content-Type', 'text/html')
-    return `<html><form method="post">
-    <textarea name="text" rows="10" cols="80"></textarea>
-    <input type="submit" value="Encrypt" />`
-  }
-
-  return 'unknown action'
+  return bot.processHttpRequest(context, request, reply)
 }
