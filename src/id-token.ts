@@ -1,27 +1,33 @@
 import { encrypted } from './encrypted'
-import { createSecretKey } from 'crypto'
+import { createPublicKey, createPrivateKey } from 'crypto'
 import { jwtVerify, SignJWT } from 'jose'
 import { User } from 'discord.js'
 
-const key = encrypted`D+XyV/JDZyFel9eaizc8/4PRSJO/oGT0.zWGSoe4sUwQ4ym0Amo5LB9KYdK5KG
-  gSn4e9lFjoPCLCD6G8wWHy36LXYY5FKoLYpsos=`
+const publicKey = createPublicKey(`-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAvDejbyiuwv4q4sFu5WbaXaZukH4R60PB2v9uNbiPRwc=
+-----END PUBLIC KEY-----`)
 
-const secretKey = createSecretKey(key, 'utf-8')
+const privateKey = createPrivateKey(
+  encrypted`1iAx/wn3xsbZ0maxHR+TLmACzPeVifJe.b2JXJQVZikZ1usyl9bPneeY+COUwo
+  MCLEYXC999I4OCFNtiTg4CckMcRYzDHQ5Y39+P9pX91wUFoomSyd5Jh462rV3l75da2xW5L9
+  cbbjfEMEEbVMLXrqXBybODy/8Eaq89Cx/C756QBKHeYGFS38G2zi+7X7KHJ5FETYznBh3stH
+  nNa2VpCGbnO`,
+)
 
 export async function mintIdToken(user: User, audience: string) {
   const token = await new SignJWT({ sub: `discord${user.id}`, name: user.tag })
-    .setProtectedHeader({ alg: 'HS256' })
+    .setProtectedHeader({ alg: 'EdDSA' })
     .setIssuedAt()
     .setIssuer('showdownspace-bot')
     .setAudience(audience)
     .setExpirationTime('60 minutes')
-    .sign(secretKey)
+    .sign(privateKey)
   return token
 }
 
 export async function verifyIdToken(token: string, audience: string) {
-  const { payload } = await jwtVerify(token, secretKey, {
-    algorithms: ['HS256'],
+  const { payload } = await jwtVerify(token, publicKey, {
+    algorithms: ['EdDSA'],
     issuer: 'showdownspace-bot',
     audience: audience,
   })

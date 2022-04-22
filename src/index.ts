@@ -1,6 +1,6 @@
-import type { Client, Interaction, Message } from 'discord.js'
-import type { Db } from 'mongodb'
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import { Interaction, Message } from 'discord.js'
+import type { FastifyReply, FastifyRequest } from 'fastify'
+import axios from 'axios'
 
 import { inspect } from 'util'
 import {
@@ -11,75 +11,174 @@ import {
 import { verifyIdToken } from './id-token'
 import { enhanceError } from './enhance-error'
 import { deployCommands } from './deploy-commands'
-
-export interface BotContext {
-  discordToken: string
-  client: Client
-  db: Db
-  fastify: FastifyInstance
-}
-
-function log(message: string) {
-  console.log(`[${new Date().toISOString()}] [showdownspace-bot] ${message}`)
-}
+import { encrypted } from './encrypted'
+import { BotContext } from './types'
+import { syncProfile } from './profile'
+import { sendEmailVerificationRequest, verifyEmail } from './email-verification'
 
 export async function handleInteraction(
   context: BotContext,
   interaction: Interaction,
 ) {
-  const { db } = context
-  if (!interaction.isCommand()) return
+  const { db, log } = context
 
-  const { commandName } = interaction
-  if (commandName === 'showdown') {
+  if (!interaction.guild) return
+
+  if (interaction.isCommand()) {
+    const { commandName } = interaction
     const subcommand = interaction.options.getSubcommand()
-    log(`Received command "${subcommand}" from ${interaction.user.tag}`)
-    if (subcommand === 'ping') {
-      await interaction.reply({
-        content: `:white_check_mark: pong`,
-        ephemeral: true,
-      })
-    } else if (subcommand === 'link-github') {
-      const url = await getGitHubAuthorizeUrl(interaction.user)
-      await interaction.reply({
-        content: `:pleading_face: Please go to this URL to link your GitHub account: :arrow_down:\n${url}`,
-        ephemeral: true,
-      })
-    } else if (subcommand === 'set') {
-      const key = interaction.options.getString('key')
-      const value = interaction.options.getString('value')
-
-      if (key === 'email') {
-        await db.collection('profiles').updateOne(
+    log.info(
+      { commandName, subcommand, user: interaction.user.tag },
+      'Command interaction received',
+    )
+    if (commandName === 'showdown') {
+      if (subcommand === 'ping') {
+        await interaction.reply({
+          content: `:white_check_mark: pong`,
+          ephemeral: true,
+        })
+      } else if (subcommand === 'profile') {
+        const result = await db.collection('profiles').findOneAndUpdate(
           { _id: `discord${interaction.user.id}` },
           {
             $set: {
               discordUserId: interaction.user.id,
               discordTag: interaction.user.tag,
-              proposedEmail: value,
             },
           },
-          { upsert: true },
+          { upsert: true, returnDocument: 'after' },
         )
+        const profile = result.value!
         await interaction.reply({
-          content: `:white_check_mark: Thank you, your email address has been saved.`,
+          content: '```' + JSON.stringify(profile, null, 2) + '```',
+          components: [
+            {
+              type: 'ACTION_ROW',
+              components: [
+                {
+                  type: 'BUTTON',
+                  style: profile.githubUser ? 'SECONDARY' : 'PRIMARY',
+                  customId: profile.githubUser
+                    ? 'unlink-github'
+                    : 'link-github',
+                  label: profile.githubUser
+                    ? 'Unlink GitHub user'
+                    : 'Link GitHub user',
+                },
+              ],
+            },
+          ],
           ephemeral: true,
         })
-      } else {
+      } else if (subcommand === 'set') {
+        const key = interaction.options.getString('key')
+        const value = interaction.options.getString('value')
+
+        if (key === 'email') {
+          await db.collection('profiles').updateOne(
+            { _id: `discord${interaction.user.id}` },
+            {
+              $set: {
+                discordUserId: interaction.user.id,
+                discordTag: interaction.user.tag,
+                proposedEmail: value,
+              },
+            },
+            { upsert: true },
+          )
+          await interaction.reply({
+            content: `:white_check_mark: Thank you, your email address has been saved.`,
+            ephemeral: true,
+          })
+        } else {
+          await interaction.editReply({
+            content: `**Error:** Unknown profile key ${key}`,
+          })
+        }
+      } else if (subcommand === 'register-email') {
+        const email = interaction.options.getString('email')
         await interaction.reply({
-          content: `**Error:** Unknown profile key ${key}`,
+          content: `:hourglass_flowing_sand: Saving your email address and sending a verification email...`,
           ephemeral: true,
         })
+        await syncProfile(context, interaction.user, {
+          proposedEmail: email,
+        })
+        await sendEmailVerificationRequest(email!)
+        await interaction.editReply({
+          content:
+            `:pleading_face: **Please verify your email address.**\n` +
+            `You will get an OTP in your email. Please use the \`/showdown verify-email\` command to submit your OTP.`,
+        })
+      } else if (subcommand === 'verify-email') {
+        const otp = interaction.options.getString('otp')
+        await interaction.reply({
+          content: `:hourglass_flowing_sand: Verifying your OTP...`,
+          ephemeral: true,
+        })
+        const profile = await syncProfile(context, interaction.user, {})
+        if (!profile.proposedEmail) {
+          await interaction.editReply({
+            content: `:x: **No email address has been registered.** Please use the \`/showdown register-email\` command to register an email address first.`,
+          })
+          return
+        }
+        try {
+          await verifyEmail(profile.proposedEmail, otp!)
+          await interaction.editReply({
+            content: `:white_check_mark: **Email address verified.** Thank you!`,
+          })
+          await syncProfile(context, interaction.user, {
+            email: profile.proposedEmail,
+          })
+        } catch (error) {
+          log.error({ err: error })
+          await interaction.editReply({
+            content: `:x: **Unable to verify your email address.** Please try again.`,
+          })
+        }
       }
+    } else if (commandName === 'answer') {
+      await db.collection('answer_buzzes').insertOne({
+        timestamp: new Date().toISOString(),
+        discordUserId: interaction.user.id,
+        discordGuildId: interaction.guild.id,
+        answer: subcommand.toUpperCase(),
+      })
+      await interaction.reply({
+        content: `:ok_hand: Received answer choice “${subcommand.toUpperCase()}”`,
+        ephemeral: true,
+      })
+    }
+  } else if (interaction.isButton()) {
+    log.info(
+      { customId: interaction.customId, user: interaction.user.tag },
+      'Button interaction received',
+    )
+    if (interaction.customId === 'link-github') {
+      const url = await getGitHubAuthorizeUrl(interaction.user)
+      await interaction.reply({
+        content: `:pleading_face: Please go to this URL to link your GitHub account: :arrow_down:\n${url}`,
+        ephemeral: true,
+      })
+    } else if (interaction.customId === 'unlink-github') {
+      const user = interaction.user
+      await db
+        .collection('profiles')
+        .updateOne({ _id: `discord${user.id}` }, { $unset: { githubUser: '' } })
+      await interaction.reply({
+        content: `:pleading_face: Unassociated your GitHub account from your Discord ID.`,
+        ephemeral: true,
+      })
     }
   }
 }
 
 export async function handleMessage(context: BotContext, message: Message) {
-  const { client, db } = context
+  const { client, db, log } = context
 
   if (message.partial) {
-    console.log('Received a partial message!')
+    log.info('Received a partial message!')
     message = await message.fetch()
   }
 
@@ -109,6 +208,9 @@ export async function handleMessage(context: BotContext, message: Message) {
             client,
             guild,
             db,
+            axios,
+            encrypted,
+            log: log.child({ name: 'code-eval' }),
             deployCommands: () => deployCommands(context),
           },
           m[1],
@@ -116,7 +218,7 @@ export async function handleMessage(context: BotContext, message: Message) {
         replyText = '```\n' + inspect(result) + '\n```'
       } catch (error) {
         replyText = '```\n' + String(error) + '\n```'
-        console.error(error)
+        log.error({ err: error }, 'Code evaluation failed')
       }
       message.reply(replyText)
       return
@@ -137,6 +239,7 @@ export async function handleHttpRequest(
 ) {
   const { db } = context
   const query = request.query as Record<string, string | undefined>
+
   if (query.action === 'callback/github') {
     const code = String(query.code)
     const state = String(query.state)
@@ -164,5 +267,17 @@ export async function handleHttpRequest(
     )
     return `Successfully linked GitHub account "@${user.login}" for Discord user "${owner.discordTag}"`
   }
+
+  if (query.action === 'encrypt') {
+    const text = (request.body as Record<string, string> | undefined)?.text
+    if (text) {
+      return 'encrypted`' + encrypted.encrypt(String(text)) + '`'
+    }
+    reply.header('Content-Type', 'text/html')
+    return `<html><form method="post">
+    <textarea name="text" rows="10" cols="80"></textarea>
+    <input type="submit" value="Encrypt" />`
+  }
+
   return 'unknown action'
 }
