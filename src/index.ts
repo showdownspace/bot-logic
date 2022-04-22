@@ -15,142 +15,112 @@ import { encrypted } from './encrypted'
 import { BotContext } from './types'
 import { syncProfile } from './profile'
 import { sendEmailVerificationRequest, verifyEmail } from './email-verification'
+import { Bot, CommandHandler } from './bot'
+
+const bot = new Bot()
+
+bot.handleCommand('/showdown ping', async (context, interaction, reply) => {
+  await reply.ok('pong')
+})
+
+bot.handleCommand('/showdown profile', async (context, interaction, reply) => {
+  const profile = await syncProfile(context, interaction.user, {})
+  await reply
+    .withComponents({
+      type: 'ACTION_ROW',
+      components: [
+        {
+          type: 'BUTTON',
+          style: profile.githubUser ? 'SECONDARY' : 'PRIMARY',
+          customId: profile.githubUser ? 'unlink-github' : 'link-github',
+          label: profile.githubUser ? 'Unlink GitHub user' : 'Link GitHub user',
+        },
+      ],
+    })
+    .ok('Here is your profile: ```' + JSON.stringify(profile, null, 2) + '```')
+})
+
+bot.handleCommand(
+  '/showdown register-email',
+  async (context, interaction, reply) => {
+    const email = interaction.options.getString('email')
+    await reply.wait(
+      'Saving your email address and sending a verification email...',
+    )
+    await syncProfile(context, interaction.user, {
+      proposedEmail: email,
+    })
+    await sendEmailVerificationRequest(email!)
+    await reply.please(
+      `**Please verify your email address.**\n` +
+        `You will get an OTP in your email. Please use the \`/showdown verify-email\` command to submit your OTP.`,
+    )
+  },
+)
+
+bot.handleCommand(
+  '/showdown verify-email',
+  async (context, interaction, reply) => {
+    const otp = interaction.options.getString('otp')
+    await interaction.reply({
+      content: `:hourglass_flowing_sand: Verifying your OTP...`,
+      ephemeral: true,
+    })
+    const profile = await syncProfile(context, interaction.user, {})
+    if (!profile.proposedEmail) {
+      await interaction.editReply({
+        content: `:x: **No email address has been registered.** Please use the \`/showdown register-email\` command to register an email address first.`,
+      })
+      return
+    }
+    try {
+      await verifyEmail(profile.proposedEmail, otp!)
+      await interaction.editReply({
+        content: `:white_check_mark: **Email address verified.** Thank you!`,
+      })
+      await syncProfile(context, interaction.user, {
+        email: profile.proposedEmail,
+      })
+    } catch (error) {
+      context.log.error({ err: error })
+      await interaction.editReply({
+        content: `:x: **Unable to verify your email address.** Please try again.`,
+      })
+    }
+  },
+)
+
+function createAnswerHandler(answer: string): CommandHandler {
+  return async (context, interaction, reply) => {
+    const { db } = context
+    await db.collection('answer_buzzes').insertOne({
+      timestamp: new Date().toISOString(),
+      discordUserId: interaction.user.id,
+      discordGuildId: interaction.guild!.id,
+      answer: answer.toUpperCase(),
+    })
+    await interaction.reply({
+      content: `:ok_hand: Received answer choice “${answer.toUpperCase()}”`,
+      ephemeral: true,
+    })
+  }
+}
+bot.handleCommand('/answer a', createAnswerHandler('A'))
+bot.handleCommand('/answer b', createAnswerHandler('B'))
+bot.handleCommand('/answer c', createAnswerHandler('C'))
+bot.handleCommand('/answer d', createAnswerHandler('D'))
 
 export async function handleInteraction(
   context: BotContext,
   interaction: Interaction,
 ) {
   const { db, log } = context
-
   if (!interaction.guild) return
+  if (await bot.processInteraction(context, interaction)) {
+    return
+  }
 
-  if (interaction.isCommand()) {
-    const { commandName } = interaction
-    const subcommand = interaction.options.getSubcommand()
-    log.info(
-      { commandName, subcommand, user: interaction.user.tag },
-      'Command interaction received',
-    )
-    if (commandName === 'showdown') {
-      if (subcommand === 'ping') {
-        await interaction.reply({
-          content: `:white_check_mark: pong`,
-          ephemeral: true,
-        })
-      } else if (subcommand === 'profile') {
-        const result = await db.collection('profiles').findOneAndUpdate(
-          { _id: `discord${interaction.user.id}` },
-          {
-            $set: {
-              discordUserId: interaction.user.id,
-              discordTag: interaction.user.tag,
-            },
-          },
-          { upsert: true, returnDocument: 'after' },
-        )
-        const profile = result.value!
-        await interaction.reply({
-          content: '```' + JSON.stringify(profile, null, 2) + '```',
-          components: [
-            {
-              type: 'ACTION_ROW',
-              components: [
-                {
-                  type: 'BUTTON',
-                  style: profile.githubUser ? 'SECONDARY' : 'PRIMARY',
-                  customId: profile.githubUser
-                    ? 'unlink-github'
-                    : 'link-github',
-                  label: profile.githubUser
-                    ? 'Unlink GitHub user'
-                    : 'Link GitHub user',
-                },
-              ],
-            },
-          ],
-          ephemeral: true,
-        })
-      } else if (subcommand === 'set') {
-        const key = interaction.options.getString('key')
-        const value = interaction.options.getString('value')
-
-        if (key === 'email') {
-          await db.collection('profiles').updateOne(
-            { _id: `discord${interaction.user.id}` },
-            {
-              $set: {
-                discordUserId: interaction.user.id,
-                discordTag: interaction.user.tag,
-                proposedEmail: value,
-              },
-            },
-            { upsert: true },
-          )
-          await interaction.reply({
-            content: `:white_check_mark: Thank you, your email address has been saved.`,
-            ephemeral: true,
-          })
-        } else {
-          await interaction.editReply({
-            content: `**Error:** Unknown profile key ${key}`,
-          })
-        }
-      } else if (subcommand === 'register-email') {
-        const email = interaction.options.getString('email')
-        await interaction.reply({
-          content: `:hourglass_flowing_sand: Saving your email address and sending a verification email...`,
-          ephemeral: true,
-        })
-        await syncProfile(context, interaction.user, {
-          proposedEmail: email,
-        })
-        await sendEmailVerificationRequest(email!)
-        await interaction.editReply({
-          content:
-            `:pleading_face: **Please verify your email address.**\n` +
-            `You will get an OTP in your email. Please use the \`/showdown verify-email\` command to submit your OTP.`,
-        })
-      } else if (subcommand === 'verify-email') {
-        const otp = interaction.options.getString('otp')
-        await interaction.reply({
-          content: `:hourglass_flowing_sand: Verifying your OTP...`,
-          ephemeral: true,
-        })
-        const profile = await syncProfile(context, interaction.user, {})
-        if (!profile.proposedEmail) {
-          await interaction.editReply({
-            content: `:x: **No email address has been registered.** Please use the \`/showdown register-email\` command to register an email address first.`,
-          })
-          return
-        }
-        try {
-          await verifyEmail(profile.proposedEmail, otp!)
-          await interaction.editReply({
-            content: `:white_check_mark: **Email address verified.** Thank you!`,
-          })
-          await syncProfile(context, interaction.user, {
-            email: profile.proposedEmail,
-          })
-        } catch (error) {
-          log.error({ err: error })
-          await interaction.editReply({
-            content: `:x: **Unable to verify your email address.** Please try again.`,
-          })
-        }
-      }
-    } else if (commandName === 'answer') {
-      await db.collection('answer_buzzes').insertOne({
-        timestamp: new Date().toISOString(),
-        discordUserId: interaction.user.id,
-        discordGuildId: interaction.guild.id,
-        answer: subcommand.toUpperCase(),
-      })
-      await interaction.reply({
-        content: `:ok_hand: Received answer choice “${subcommand.toUpperCase()}”`,
-        ephemeral: true,
-      })
-    }
-  } else if (interaction.isButton()) {
+  if (interaction.isButton()) {
     log.info(
       { customId: interaction.customId, user: interaction.user.tag },
       'Button interaction received',

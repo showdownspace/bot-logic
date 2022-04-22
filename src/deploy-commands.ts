@@ -2,7 +2,7 @@ import { SlashCommandBuilder } from '@discordjs/builders'
 import { REST } from '@discordjs/rest'
 import { Routes } from 'discord-api-types/v9'
 import { clientId, guildId } from './config'
-import { BotContext } from './BotContext'
+import { BotContext } from './types'
 
 export async function deployCommands(context: BotContext) {
   const commands = [
@@ -21,17 +21,6 @@ export async function deployCommands(context: BotContext) {
         subcommand
           .setName('profile')
           .setDescription('View your showdown.space profile'),
-      )
-      .addSubcommand((subcommand) =>
-        subcommand
-          .setName('set')
-          .setDescription('Set user profile info')
-          .addStringOption((o) =>
-            o.setName('key').setDescription('Key to set').setRequired(true),
-          )
-          .addStringOption((o) =>
-            o.setName('value').setDescription('Value to set').setRequired(true),
-          ),
       )
       .addSubcommand((subcommand) =>
         subcommand
