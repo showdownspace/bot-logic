@@ -8,4 +8,5 @@ export interface BotContext {
   db: Db
   fastify: FastifyInstance
   log: FastifyLoggerInstance
+  firebaseAdmin: typeof import('firebase-admin')
 }

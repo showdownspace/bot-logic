@@ -38,7 +38,9 @@ bot.handleCommand('/showdown profile', async (context, interaction, reply) => {
         },
       ],
     })
-    .ok('Here is your profile: ```' + JSON.stringify(profile, null, 2) + '```')
+    .ok(
+      'Here is your profile: ```' + JSON.stringify(profile, null, 2) + '```\n',
+    )
 })
 bot.handleButton('link-github', async (context, interaction, reply) => {
   const url = await getGitHubAuthorizeUrl(interaction.user)
@@ -124,7 +126,7 @@ bot.handleCommand(
         email: profile.proposedEmail,
       })
     } catch (error) {
-      context.log.error({ err: error })
+      context.log.error({ err: error }, 'Unable to verify email')
       await interaction.editReply({
         content: `:x: **Unable to verify your email address.** Please try again.`,
       })
@@ -168,11 +170,15 @@ export async function handleInteraction(
   interaction: Interaction,
 ) {
   if (!interaction.guild) return
-  await bot.processInteraction(context, interaction)
+  try {
+    await bot.processInteraction(context, interaction)
+  } catch (error) {
+    context.log.error({ err: error }, 'Unable to process Discord interaction')
+  }
 }
 
 export async function handleMessage(context: BotContext, message: Message) {
-  const { client, db, log } = context
+  const { client, db, log, firebaseAdmin } = context
 
   if (message.partial) {
     log.info('Received a partial message!')
@@ -207,6 +213,7 @@ export async function handleMessage(context: BotContext, message: Message) {
             db,
             axios,
             encrypted,
+            firebaseAdmin,
             log: log.child({ name: 'code-eval' }),
             deployCommands: () => deployCommands(context),
           },
@@ -221,12 +228,6 @@ export async function handleMessage(context: BotContext, message: Message) {
       return
     }
   }
-
-  // if (message.mentions.has(client.user) && !message.author.bot && message.guild.id === guildId) {
-  //   console.log(`[${new Date().toJSON()}] ${message.author.tag} Message=>`, message)
-
-  //   message.reply(`heyo`)
-  // }
 }
 
 export async function handleHttpRequest(
