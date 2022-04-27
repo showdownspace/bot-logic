@@ -1,195 +1,25 @@
+import axios from 'axios'
 import { Interaction, Message } from 'discord.js'
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import axios from 'axios'
 
 import { inspect } from 'util'
-import {
-  getGitHubAuthorizeUrl,
-  getGitHubProfile,
-  verifyGitHubCode,
-} from './github-linking'
-import { verifyIdToken } from './id-token'
-import { enhanceError } from './enhance-error'
+import answerBuzzerPlugin from './answer-buzzer.plugin'
+import { Bot } from './bot'
+import codeInTheWindPlugin from './code-in-the-wind.plugin'
 import { deployCommands } from './deploy-commands'
 import { encrypted } from './encrypted'
+import profilePlugin from './profile.plugin'
 import { BotContext } from './types'
-import { syncProfile } from './profile'
-import { sendEmailVerificationRequest, verifyEmail } from './email-verification'
-import { Bot, CommandHandler } from './bot'
-import { getRtSysToken } from './rt-sys'
 
 const bot = new Bot()
-
 bot.handleCommand('/showdown ping', async (context, interaction, reply) => {
   await reply.wait('wait for it')
   await reply.ok('pong')
 })
-
-bot.handleCommand('/showdown profile', async (context, interaction, reply) => {
-  const profile = await syncProfile(context, interaction.user, {})
-  await reply
-    .withEmbeds(
-      {
-        title: 'Discord',
-        color: 0x5865f2,
-        description: profile.discordTag,
-      },
-      {
-        title: 'GitHub',
-        color: 0x24292e,
-        description: profile.githubUser
-          ? `@${profile.githubUser.login}`
-          : '(Not linked)',
-        url: profile.githubUser
-          ? `https://github.com/${profile.githubUser.login}`
-          : undefined,
-      },
-    )
-    .withComponents({
-      type: 'ACTION_ROW',
-      components: [
-        {
-          type: 'BUTTON',
-          style: profile.githubUser ? 'SECONDARY' : 'PRIMARY',
-          customId: profile.githubUser ? 'unlink-github' : 'link-github',
-          label: profile.githubUser ? 'Unlink GitHub user' : 'Link GitHub user',
-        },
-      ],
-    })
-    .ok(
-      'Here is your profile: ```' + JSON.stringify(profile, null, 2) + '```\n',
-    )
-})
-bot.handleButton('link-github', async (context, interaction, reply) => {
-  const url = await getGitHubAuthorizeUrl(interaction.user)
-  await reply
-    .withLink('Click here to link your GitHub account', url, url)
-    .please(
-      `Please click the link below to link your GitHub account: :arrow_down:`,
-    )
-})
-bot.handleHttpAction('callback/github', async (context, request, reply) => {
-  const { db } = context
-  const query = request.query as Record<string, string>
-  const code = String(query.code)
-  const state = String(query.state)
-  const owner = await verifyIdToken(
-    state,
-    'showdownspace-bot/github-linking',
-  ).catch(enhanceError('Unable to verify ID token'))
-  const { accessToken } = await verifyGitHubCode(code)
-  const user = await getGitHubProfile(accessToken)
-  await db.collection('profiles').updateOne(
-    { _id: `discord${owner.discordId}` },
-    {
-      $set: {
-        discordUserId: owner.discordId,
-        discordTag: owner.discordTag,
-        githubUser: {
-          login: user.login,
-          id: user.id,
-          avatar_url: user.avatar_url,
-          name: user.name,
-        },
-      },
-    },
-    { upsert: true },
-  )
-  return `Successfully linked GitHub account "@${user.login}" for Discord user "${owner.discordTag}"`
-})
-bot.handleButton('unlink-github', async (context, interaction, reply) => {
-  await syncProfile(context, interaction.user, { githubUser: null })
-  await reply.ok(`Unassociated your GitHub account from your Discord ID.`)
-})
-
-bot.handleCommand(
-  '/showdown register-email',
-  async (context, interaction, reply) => {
-    const email = interaction.options.getString('email')
-    await reply.wait(
-      'Saving your email address and sending a verification email...',
-    )
-    await syncProfile(context, interaction.user, {
-      proposedEmail: email,
-    })
-    await sendEmailVerificationRequest(email!)
-    await reply.please(
-      `**Please verify your email address.**\n` +
-        `You will get an OTP in your email. Please use the \`/showdown verify-email\` command to submit your OTP.`,
-    )
-  },
-)
-
-bot.handleCommand(
-  '/showdown verify-email',
-  async (context, interaction, reply) => {
-    const otp = interaction.options.getString('otp')
-    await interaction.reply({
-      content: `:hourglass_flowing_sand: Verifying your OTP...`,
-      ephemeral: true,
-    })
-    const profile = await syncProfile(context, interaction.user, {})
-    if (!profile.proposedEmail) {
-      await interaction.editReply({
-        content: `:x: **No email address has been registered.** Please use the \`/showdown register-email\` command to register an email address first.`,
-      })
-      return
-    }
-    try {
-      await verifyEmail(profile.proposedEmail, otp!)
-      await interaction.editReply({
-        content: `:white_check_mark: **Email address verified.** Thank you!`,
-      })
-      await syncProfile(context, interaction.user, {
-        email: profile.proposedEmail,
-      })
-    } catch (error) {
-      context.log.error({ err: error }, 'Unable to verify email')
-      await interaction.editReply({
-        content: `:x: **Unable to verify your email address.** Please try again.`,
-      })
-    }
-  },
-)
-
 bot.handleCommand('/manage', async (context, interaction, reply) => {
   const command = interaction.options.getString('command')
   await reply.ok(`Command:\`\`\`${command}\`\`\``)
 })
-
-function createAnswerHandler(answer: string): CommandHandler {
-  return async (context, interaction, reply) => {
-    const { db } = context
-    await db.collection('answer_buzzes').insertOne({
-      timestamp: new Date().toISOString(),
-      discordUserId: interaction.user.id,
-      discordGuildId: interaction.guild!.id,
-      answer: answer.toUpperCase(),
-    })
-    await interaction.reply({
-      content: `:ok_hand: Received answer choice “${answer.toUpperCase()}”`,
-      ephemeral: true,
-    })
-  }
-}
-bot.handleCommand('/answer a', createAnswerHandler('A'))
-bot.handleCommand('/answer b', createAnswerHandler('B'))
-bot.handleCommand('/answer c', createAnswerHandler('C'))
-bot.handleCommand('/answer d', createAnswerHandler('D'))
-
-bot.handleCommand(
-  '/codeinthewind editor',
-  async (context, interaction, reply) => {
-    const token = await getRtSysToken(context, interaction.user)
-    const url =
-      'https://codeinthewind-editor.showdown.space/?room=citw#auth_token=' +
-      encodeURIComponent(token)
-    reply
-      .withLink('Click here to launch the editor', url, url)
-      .ok('Click the following link to open the editor:')
-  },
-)
-
 bot.handleHttpAction('encrypt', async (context, request, reply) => {
   const text = (request.body as Record<string, string> | undefined)?.text
   if (text) {
@@ -200,6 +30,10 @@ bot.handleHttpAction('encrypt', async (context, request, reply) => {
   <textarea name="text" rows="10" cols="80"></textarea>
   <input type="submit" value="Encrypt" />`
 })
+
+bot.register(profilePlugin)
+bot.register(answerBuzzerPlugin)
+bot.register(codeInTheWindPlugin)
 
 export async function handleInteraction(
   context: BotContext,

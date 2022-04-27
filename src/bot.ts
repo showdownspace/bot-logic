@@ -5,14 +5,19 @@ import {
   MessageOptions,
 } from 'discord.js'
 import type { FastifyReply, FastifyRequest } from 'fastify'
+import { ChainOfResponsibility } from './pipeline-tools'
 import { BotContext } from './types'
 
 export class Bot {
-  interactionProcessors: InteractionProcessor[] = []
-  httpRequestProcessors: HttpRequestProcessor[] = []
+  private interactionProcessors =
+    new ChainOfResponsibility<InteractionProcessor>()
+  private httpRequestProcessors =
+    new ChainOfResponsibility<HttpRequestProcessor>(
+      () => async () => 'unknown action :(',
+    )
 
   handleCommand(pattern: string, commandHandler: CommandHandler) {
-    this.interactionProcessors.push((context, interaction) => {
+    this.interactionProcessors.add((context, interaction) => {
       if (!interaction.isCommand()) {
         return
       }
@@ -37,7 +42,7 @@ export class Bot {
     })
   }
   handleButton(customId: string, buttonHandler: ButtonHandler) {
-    this.interactionProcessors.push((context, interaction) => {
+    this.interactionProcessors.add((context, interaction) => {
       if (!interaction.isButton()) {
         return
       }
@@ -59,7 +64,7 @@ export class Bot {
     })
   }
   handleHttpAction(actionName: string, actionHandler: HttpActionHandler) {
-    this.httpRequestProcessors.push((context, request, reply) => {
+    this.httpRequestProcessors.add((context, request, reply) => {
       const query = request.query as
         | Record<string, string | undefined>
         | undefined
@@ -71,42 +76,32 @@ export class Bot {
       }
     })
   }
+  register(plugin: (bot: Bot) => void) {
+    plugin(this)
+  }
 
   async processInteraction(context: BotContext, interaction: Interaction) {
-    for (const processor of this.interactionProcessors) {
-      const handler = processor(context, interaction)
-      if (handler) {
-        await handler()
-        return true
-      }
-    }
-    return false
+    return this.interactionProcessors.handle(context, interaction)
   }
   async processHttpRequest(
     context: BotContext,
     request: FastifyRequest,
     reply: FastifyReply,
   ) {
-    for (const processor of this.httpRequestProcessors) {
-      const handler = processor(context, request, reply)
-      if (handler) {
-        return await handler()
-      }
-    }
-    return 'unknown action'
+    return this.httpRequestProcessors.handle(context, request, reply)
   }
 }
 
 export type InteractionProcessor = (
   context: BotContext,
   interaction: Interaction,
-) => (() => Promise<void>) | void
+) => (() => Promise<void>) | undefined
 
 export type HttpRequestProcessor = (
   context: BotContext,
   request: FastifyRequest,
   reply: FastifyReply,
-) => (() => Promise<any>) | void
+) => (() => Promise<any>) | undefined
 
 export type CommandHandler = (
   context: BotContext,
@@ -183,4 +178,8 @@ export class Reply {
     ]
     return this
   }
+}
+
+export function definePlugin(fn: (bot: Bot) => void) {
+  return fn
 }
