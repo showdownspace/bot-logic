@@ -49,10 +49,10 @@
     node-fetch "^2.6.7"
     tslib "^2.3.1"
 
-"@dtinth/encrypted@^0.3.0":
-  version "0.3.0"
-  resolved "https://registry.yarnpkg.com/@dtinth/encrypted/-/encrypted-0.3.0.tgz#9a157d53d690912804d2b19c54d8c1da3c0f6dca"
-  integrity sha512-J+zsCFFi31njCyF+jmS2HaYUWKTtjdobVV45WeH8tf91QwNbA6AbMrPuTtLK9YDfOOldZS7uFCFoj0UUOcN0bw==
+"@dtinth/encrypted@^0.3.1":
+  version "0.3.1"
+  resolved "https://registry.yarnpkg.com/@dtinth/encrypted/-/encrypted-0.3.1.tgz#6339719cc4a72ff5c1ab37872ad8ca64bcc11b19"
+  integrity sha512-BMxQVEvSVAz1Es3JA99GkHTHRJRJuYDZ9VVYvXOcEUjDUBdQ1DzHZonqzp/xrWP4u9mfNHLV/6SacqJgfF7ENA==
   dependencies:
     "@types/node" "*"
     dotenv "^8.2.0"

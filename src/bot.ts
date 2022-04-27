@@ -17,7 +17,7 @@ export class Bot {
         return
       }
       const commandName = interaction.commandName
-      const subcommand = interaction.options.getSubcommand()
+      const subcommand = interaction.options.getSubcommand(false)
       let str = '/' + commandName
       if (subcommand) {
         str += ' ' + subcommand
@@ -165,6 +165,11 @@ export class Reply {
 
   withComponents(...components: NonNullable<MessageOptions['components']>) {
     this.extraParams.components = components
+    return this
+  }
+
+  withEmbeds(...embeds: NonNullable<MessageOptions['embeds']>) {
+    this.extraParams.embeds = embeds
     return this
   }
 

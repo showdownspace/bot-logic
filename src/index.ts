@@ -16,6 +16,7 @@ import { BotContext } from './types'
 import { syncProfile } from './profile'
 import { sendEmailVerificationRequest, verifyEmail } from './email-verification'
 import { Bot, CommandHandler } from './bot'
+import { getRtSysToken } from './rt-sys'
 
 const bot = new Bot()
 
@@ -27,6 +28,23 @@ bot.handleCommand('/showdown ping', async (context, interaction, reply) => {
 bot.handleCommand('/showdown profile', async (context, interaction, reply) => {
   const profile = await syncProfile(context, interaction.user, {})
   await reply
+    .withEmbeds(
+      {
+        title: 'Discord',
+        color: 0x5865f2,
+        description: profile.discordTag,
+      },
+      {
+        title: 'GitHub',
+        color: 0x24292e,
+        description: profile.githubUser
+          ? `@${profile.githubUser.login}`
+          : '(Not linked)',
+        url: profile.githubUser
+          ? `https://github.com/${profile.githubUser.login}`
+          : undefined,
+      },
+    )
     .withComponents({
       type: 'ACTION_ROW',
       components: [
@@ -134,6 +152,11 @@ bot.handleCommand(
   },
 )
 
+bot.handleCommand('/manage', async (context, interaction, reply) => {
+  const command = interaction.options.getString('command')
+  await reply.ok(`Command:\`\`\`${command}\`\`\``)
+})
+
 function createAnswerHandler(answer: string): CommandHandler {
   return async (context, interaction, reply) => {
     const { db } = context
@@ -153,6 +176,19 @@ bot.handleCommand('/answer a', createAnswerHandler('A'))
 bot.handleCommand('/answer b', createAnswerHandler('B'))
 bot.handleCommand('/answer c', createAnswerHandler('C'))
 bot.handleCommand('/answer d', createAnswerHandler('D'))
+
+bot.handleCommand(
+  '/codeinthewind editor',
+  async (context, interaction, reply) => {
+    const token = await getRtSysToken(context, interaction.user)
+    const url =
+      'https://codeinthewind-editor.showdown.space/?room=citw#auth_token=' +
+      encodeURIComponent(token)
+    reply
+      .withLink('Click here to launch the editor', url, url)
+      .ok('Click the following link to open the editor:')
+  },
+)
 
 bot.handleHttpAction('encrypt', async (context, request, reply) => {
   const text = (request.body as Record<string, string> | undefined)?.text

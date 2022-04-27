@@ -39,6 +39,23 @@ export async function deployCommands(context: BotContext) {
           ),
       ),
     new SlashCommandBuilder()
+      .setName('codeinthewind')
+      .setDescription('Code in the Wind')
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('editor')
+          .setDescription('Launch Code in the Wind Editor'),
+      ),
+    new SlashCommandBuilder()
+      .setName('manage')
+      .setDescription('Runs a management command (event staff only)')
+      .addStringOption((o) =>
+        o
+          .setName('command')
+          .setDescription('Command to execute')
+          .setRequired(true),
+      ),
+    new SlashCommandBuilder()
       .setName('answer')
       .setDescription('Submit an answer')
       .addSubcommand((subcommand) =>
