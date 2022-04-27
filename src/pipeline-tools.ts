@@ -1,7 +1,3 @@
-export type ChainOfResponsibilityHandler = (
-  ...args: any[]
-) => (() => any) | undefined
-
 export class ChainOfResponsibility<F extends ChainOfResponsibilityHandler> {
   private handlers: F[] = []
   constructor(private fallback?: F) {}
@@ -26,6 +22,10 @@ export class ChainOfResponsibility<F extends ChainOfResponsibilityHandler> {
     }
   }
 }
+
+export type ChainOfResponsibilityHandler = (
+  ...args: any[]
+) => (() => any) | undefined
 
 export type ChainOfResponsibilityResultOf<
   F extends ChainOfResponsibilityHandler,
