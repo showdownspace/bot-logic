@@ -8,6 +8,7 @@ import { Bot } from './bot'
 import codeInTheWindPlugin from './code-in-the-wind.plugin'
 import { deployCommands } from './deploy-commands'
 import { encrypted } from './encrypted'
+import managementPlugin from './management.plugin'
 import profilePlugin from './profile.plugin'
 import { BotContext } from './types'
 
@@ -15,10 +16,6 @@ const bot = new Bot()
 bot.handleCommand('/showdown ping', async (context, interaction, reply) => {
   await reply.wait('wait for it')
   await reply.ok('pong')
-})
-bot.handleCommand('/manage', async (context, interaction, reply) => {
-  const command = interaction.options.getString('command')
-  await reply.ok(`Command:\`\`\`${command}\`\`\``)
 })
 bot.handleHttpAction('encrypt', async (context, request, reply) => {
   const text = (request.body as Record<string, string> | undefined)?.text
@@ -31,6 +28,7 @@ bot.handleHttpAction('encrypt', async (context, request, reply) => {
   <input type="submit" value="Encrypt" />`
 })
 
+bot.register(managementPlugin)
 bot.register(profilePlugin)
 bot.register(answerBuzzerPlugin)
 bot.register(codeInTheWindPlugin)
