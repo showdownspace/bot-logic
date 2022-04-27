@@ -124,8 +124,12 @@ export type HttpActionHandler = (
 export class Reply {
   private extraParams: any = {}
   private written = false
+  private ephemeral = true
   constructor(private interaction: CommandInteraction | ButtonInteraction) {}
 
+  makePublic() {
+    this.ephemeral = false
+  }
   async writeText(content: string) {
     if (this.written) {
       await this.interaction.editReply({
@@ -135,7 +139,7 @@ export class Reply {
     } else {
       await this.interaction.reply({
         content: content,
-        ephemeral: true,
+        ephemeral: this.ephemeral,
         ...this.extraParams,
       })
       this.written = true
