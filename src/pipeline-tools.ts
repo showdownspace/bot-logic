@@ -1,6 +1,8 @@
-type AnyHandler = (...args: any[]) => (() => any) | undefined
+export type ChainOfResponsibilityHandler = (
+  ...args: any[]
+) => (() => any) | undefined
 
-export class ChainOfResponsibility<F extends AnyHandler> {
+export class ChainOfResponsibility<F extends ChainOfResponsibilityHandler> {
   private handlers: F[] = []
   constructor(private fallback?: F) {}
   add(handler: F) {
@@ -17,7 +19,7 @@ export class ChainOfResponsibility<F extends AnyHandler> {
       return this.fallback(...args) as ReturnType<F>
     }
   }
-  handle(...args: Parameters<F>): ResultOf<F> | undefined {
+  handle(...args: Parameters<F>): ChainOfResponsibilityResultOf<F> | undefined {
     const handler = this.getHandler(...args)
     if (handler) {
       return handler()
@@ -25,6 +27,6 @@ export class ChainOfResponsibility<F extends AnyHandler> {
   }
 }
 
-type ResultOf<F extends AnyHandler> = ReturnType<
-  Exclude<ReturnType<F>, undefined>
->
+export type ChainOfResponsibilityResultOf<
+  F extends ChainOfResponsibilityHandler,
+> = ReturnType<Exclude<ReturnType<F>, undefined>>
