@@ -33,6 +33,18 @@ export default definePlugin((bot) => {
     },
   )
   management(bot).handleManagementCommand(
+    'citw-add',
+    async (context, interaction, payload, output) => {
+      let added = 0
+      for (const mention of payload.matchAll(/<@!?(\d+)>/g)) {
+        const uid = `discord${mention[1]}`
+        await getRoomRef(context).child('config/stage').push(uid)
+        added++
+      }
+      output.puts('Number of people added to stage: ' + added)
+    },
+  )
+  management(bot).handleManagementCommand(
     'citw-status',
     async (context, interaction, payload, output) => {
       const presencePromise = getRoomRef(context)
