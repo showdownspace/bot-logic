@@ -70,6 +70,15 @@ export async function deployCommands(context: BotContext) {
       .addSubcommand((subcommand) =>
         subcommand.setName('d').setDescription('Submit an answer choice “D”'),
       ),
+    new SlashCommandBuilder()
+      .setName('vote')
+      .setDescription('Votes')
+      .addStringOption((o) =>
+        o
+          .setName('options')
+          .setDescription('Options to vote')
+          .setRequired(true),
+      ),
   ].map((command) => command.toJSON())
 
   const rest = new REST({ version: '9' }).setToken(context.discordToken)

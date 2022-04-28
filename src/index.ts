@@ -11,6 +11,7 @@ import { encrypted } from './encrypted'
 import managementPlugin from './management.plugin'
 import profilePlugin from './profile.plugin'
 import { BotContext } from './types'
+import votePlugin from './vote.plugin'
 
 const bot = new Bot()
 bot.handleCommand('/showdown ping', async (context, interaction, reply) => {
@@ -31,6 +32,7 @@ bot.register(managementPlugin)
 bot.register(profilePlugin)
 bot.register(answerBuzzerPlugin)
 bot.register(codeInTheWindPlugin)
+bot.register(votePlugin)
 
 export async function handleInteraction(
   context: BotContext,
