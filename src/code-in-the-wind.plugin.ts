@@ -14,8 +14,14 @@ export default definePlugin((bot) => {
         'https://codeinthewind-editor.showdown.space/?room=citw#auth_token=' +
         encodeURIComponent(token)
       reply
-        .withLink('Click here to launch the editor', url, url)
-        .ok('Click the following link to open the editor:')
+        .withLink(
+          'Click here to launch the editor',
+          'Code in the Wind Editor',
+          url,
+        )
+        .ok(
+          '**Click the link below to open the editor.** (Note: This link is unique to you, do not share with others!)',
+        )
     },
   )
   management(bot).handleManagementCommand(
