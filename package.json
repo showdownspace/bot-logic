@@ -22,6 +22,7 @@
     "discord.js": "^13.6.0",
     "fastify": "^3.28.0",
     "firebase-admin": "^10.1.0",
+    "googleapis": "^100.0.0",
     "jose": "^4.6.2",
     "mongodb": "^4.5.0"
   }

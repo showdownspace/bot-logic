@@ -27,7 +27,6 @@ bot.handleHttpAction('encrypt', async (context, request, reply) => {
   <textarea name="text" rows="10" cols="80"></textarea>
   <input type="submit" value="Encrypt" />`
 })
-
 bot.register(managementPlugin)
 bot.register(profilePlugin)
 bot.register(answerBuzzerPlugin)
@@ -46,7 +45,7 @@ export async function handleInteraction(
 }
 
 export async function handleMessage(context: BotContext, message: Message) {
-  const { client, db, log, firebaseAdmin } = context
+  const { client, db, log, firebaseAdmin, google } = context
 
   if (message.partial) {
     log.info('Received a partial message!')
@@ -82,6 +81,7 @@ export async function handleMessage(context: BotContext, message: Message) {
             axios,
             encrypted,
             firebaseAdmin,
+            google,
             log: log.child({ name: 'code-eval' }),
             deployCommands: () => deployCommands(context),
           },

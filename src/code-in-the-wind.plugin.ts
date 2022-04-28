@@ -1,3 +1,4 @@
+import { writeBackup } from './backup'
 import { definePlugin } from './bot'
 import { management } from './management'
 import { getRtSysToken } from './rt-sys'
@@ -21,6 +22,15 @@ export default definePlugin((bot) => {
     async (context, interaction, payload, output) => {
       await getRoomRef(context).child('settings/acceptingSubmissions').set(true)
       output.puts('Editor unlocked')
+    },
+  )
+  management(bot).handleManagementCommand(
+    'citw-backup',
+    async (context, interaction, payload, output) => {
+      output.makePublic()
+      const snapshot = await getRoomRef(context).once('value')
+      const filename = await writeBackup(context, 'citw', snapshot.val() || {})
+      output.puts(`Database backup saved to "${filename}"`)
     },
   )
   management(bot).handleManagementCommand(

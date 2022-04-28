@@ -125,13 +125,23 @@ export class Reply {
   private extraParams: any = {}
   private written = false
   private ephemeral = true
+  private requiresFollowUp = false
   constructor(private interaction: CommandInteraction | ButtonInteraction) {}
 
   makePublic() {
+    if (this.ephemeral && this.written) {
+      this.requiresFollowUp = true
+    }
     this.ephemeral = false
   }
   async writeText(content: string) {
-    if (this.written) {
+    if (this.requiresFollowUp) {
+      await this.interaction.followUp({
+        content: content,
+        ephemeral: this.ephemeral,
+        ...this.extraParams,
+      })
+    } else if (this.written) {
       await this.interaction.editReply({
         content: content,
         ...this.extraParams,

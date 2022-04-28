@@ -28,6 +28,10 @@ export class ManagementApi {
         return async () => {
           const output = new ManagementCommandOutput()
           let ok = true
+          let written = false
+          setTimeout(() => {
+            reply.wait('Thinking....')
+          }, 500)
           try {
             await handler(context, interaction, payload, output)
           } catch (error) {
@@ -42,6 +46,7 @@ export class ManagementApi {
             output.toString(),
             '```',
           ].join('\n')
+          written = true
           if (ok) {
             if (output.public) {
               reply.makePublic()
