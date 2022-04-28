@@ -30,7 +30,7 @@ export class ManagementApi {
           let ok = true
           let written = false
           setTimeout(() => {
-            reply.wait('Thinking....')
+            if (!written) reply.wait('Thinking....')
           }, 500)
           try {
             await handler(context, interaction, payload, output)

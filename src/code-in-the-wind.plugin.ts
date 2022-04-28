@@ -3,6 +3,7 @@ import { definePlugin } from './bot'
 import { management } from './management'
 import { getRtSysToken } from './rt-sys'
 import { BotContext } from './types'
+import { exportVotes } from './vote'
 
 export default definePlugin((bot) => {
   bot.handleCommand(
@@ -79,6 +80,28 @@ export default definePlugin((bot) => {
       output.puts(`Online users count: ${onlineUsers.length}`)
       for (const user of onlineUsers) {
         output.puts(`- ${user}`)
+      }
+    },
+  )
+  management(bot).handleManagementCommand(
+    'citw-votes',
+    async (context, interaction, payload, output) => {
+      const votes = await exportVotes(context)
+      const count: Record<string, number> = {}
+      const countOf = (option: string) => count[option] || 0
+      for (const vote of votes) {
+        for (const option of vote.options) {
+          count[option] = countOf(option) + 1
+        }
+      }
+      const contestants = ['1', '2', '3', '4', '5', '6', '7', '8']
+      const rankings = contestants.map((contestant) => {
+        return contestants.filter((c) => countOf(c) > countOf(contestant))
+          .length
+      })
+      for (const n of rankings) {
+        const score = [25, 16, 9, 4, 3, 2, 1][n] || 0
+        output.puts(`${score}`)
       }
     },
   )

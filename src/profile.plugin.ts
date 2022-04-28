@@ -10,48 +10,45 @@ import { verifyIdToken } from './id-token'
 import { syncProfile } from './profile'
 
 export default definePlugin((bot) => {
-  bot.handleCommand(
-    '/showdown profile',
-    async (context, interaction, reply) => {
-      const profile = await syncProfile(context, interaction.user, {})
-      await reply
-        .withEmbeds(
+  bot.handleCommand('/profile', async (context, interaction, reply) => {
+    const profile = await syncProfile(context, interaction.user, {})
+    await reply
+      .withEmbeds(
+        {
+          title: 'Discord',
+          color: 0x5865f2,
+          description: profile.discordTag,
+        },
+        {
+          title: 'GitHub',
+          color: 0x24292e,
+          description: profile.githubUser
+            ? `@${profile.githubUser.login}`
+            : '(Not linked)',
+          url: profile.githubUser
+            ? `https://github.com/${profile.githubUser.login}`
+            : undefined,
+        },
+      )
+      .withComponents({
+        type: 'ACTION_ROW',
+        components: [
           {
-            title: 'Discord',
-            color: 0x5865f2,
-            description: profile.discordTag,
+            type: 'BUTTON',
+            style: profile.githubUser ? 'SECONDARY' : 'PRIMARY',
+            customId: profile.githubUser ? 'unlink-github' : 'link-github',
+            label: profile.githubUser
+              ? 'Unlink GitHub user'
+              : 'Link GitHub user',
           },
-          {
-            title: 'GitHub',
-            color: 0x24292e,
-            description: profile.githubUser
-              ? `@${profile.githubUser.login}`
-              : '(Not linked)',
-            url: profile.githubUser
-              ? `https://github.com/${profile.githubUser.login}`
-              : undefined,
-          },
-        )
-        .withComponents({
-          type: 'ACTION_ROW',
-          components: [
-            {
-              type: 'BUTTON',
-              style: profile.githubUser ? 'SECONDARY' : 'PRIMARY',
-              customId: profile.githubUser ? 'unlink-github' : 'link-github',
-              label: profile.githubUser
-                ? 'Unlink GitHub user'
-                : 'Link GitHub user',
-            },
-          ],
-        })
-        .ok(
-          'Here is your profile: ```' +
-            JSON.stringify(profile, null, 2) +
-            '```\n',
-        )
-    },
-  )
+        ],
+      })
+      .ok(
+        'Here is your profile: ```' +
+          JSON.stringify(profile, null, 2) +
+          '```\n',
+      )
+  })
   bot.handleButton('link-github', async (context, interaction, reply) => {
     const url = await getGitHubAuthorizeUrl(interaction.user)
     await reply

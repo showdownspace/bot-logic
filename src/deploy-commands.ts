@@ -14,16 +14,6 @@ export async function deployCommands(context: BotContext) {
       )
       .addSubcommand((subcommand) =>
         subcommand
-          .setName('link-github')
-          .setDescription('Link your GitHub Account'),
-      )
-      .addSubcommand((subcommand) =>
-        subcommand
-          .setName('profile')
-          .setDescription('View your showdown.space profile'),
-      )
-      .addSubcommand((subcommand) =>
-        subcommand
           .setName('register-email')
           .setDescription('Registers your email address (for staff)')
           .addStringOption((o) =>
@@ -79,6 +69,9 @@ export async function deployCommands(context: BotContext) {
           .setDescription('Options to vote')
           .setRequired(true),
       ),
+    new SlashCommandBuilder()
+      .setName('profile')
+      .setDescription('View your profile'),
   ].map((command) => command.toJSON())
 
   const rest = new REST({ version: '9' }).setToken(context.discordToken)

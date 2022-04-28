@@ -30,9 +30,16 @@ export default definePlugin((bot) => {
     await saveVote(context, interaction.user, options)
     await reply.ok('Vote submitted. Thanks!')
   })
-
   management(bot).handleManagementCommand(
-    'vote-clear',
+    'vote-stats',
+    async (context, interaction, payload, output) => {
+      const votes = await exportVotes(context)
+      output.makePublic()
+      output.puts(`Total number of voters: ${votes.length}`)
+    },
+  )
+  management(bot).handleManagementCommand(
+    'vote-reset',
     async (context, interaction, payload, output) => {
       const votes = await exportVotes(context)
       const backupFilename = await writeBackup(context, 'votes', votes)
