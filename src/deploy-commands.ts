@@ -71,7 +71,7 @@ export async function deployCommands(context: BotContext) {
       ),
     new SlashCommandBuilder()
       .setName('profile')
-      .setDescription('View your profile'),
+      .setDescription('View your showdown.space profile'),
   ].map((command) => command.toJSON())
 
   const rest = new REST({ version: '9' }).setToken(context.discordToken)

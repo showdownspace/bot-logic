@@ -3,6 +3,7 @@ import {
   CommandInteraction,
   Interaction,
   MessageOptions,
+  SelectMenuInteraction,
 } from 'discord.js'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { ChainOfResponsibility } from './pipeline-tools'
@@ -53,6 +54,28 @@ export class Bot {
         const reply: Reply = new Reply(interaction)
         try {
           await buttonHandler(context, interaction, reply)
+        } catch (error) {
+          reply.fail(`An error has occurred.`)
+          context.log.error(
+            { err: error },
+            'Unable to handle button ' + customId,
+          )
+        }
+      }
+    })
+  }
+  handleSelectMenu(customId: string, selectMenuHandler: SelectMenuHandler) {
+    this.interactionProcessors.add((context, interaction) => {
+      if (!interaction.isSelectMenu()) {
+        return
+      }
+      if (interaction.customId !== customId) {
+        return
+      }
+      return async () => {
+        const reply: Reply = new Reply(interaction)
+        try {
+          await selectMenuHandler(context, interaction, reply)
         } catch (error) {
           reply.fail(`An error has occurred.`)
           context.log.error(
@@ -115,6 +138,12 @@ export type ButtonHandler = (
   reply: Reply,
 ) => Promise<void>
 
+export type SelectMenuHandler = (
+  context: BotContext,
+  interaction: SelectMenuInteraction,
+  reply: Reply,
+) => Promise<void>
+
 export type HttpActionHandler = (
   context: BotContext,
   request: FastifyRequest,
@@ -126,7 +155,12 @@ export class Reply {
   private written = false
   private ephemeral = true
   private requiresFollowUp = false
-  constructor(private interaction: CommandInteraction | ButtonInteraction) {}
+  constructor(
+    private interaction:
+      | CommandInteraction
+      | ButtonInteraction
+      | SelectMenuInteraction,
+  ) {}
 
   makePublic() {
     if (this.ephemeral && this.written) {

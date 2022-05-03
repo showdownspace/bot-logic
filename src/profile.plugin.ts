@@ -13,22 +13,53 @@ export default definePlugin((bot) => {
   bot.handleCommand('/profile', async (context, interaction, reply) => {
     const profile = await syncProfile(context, interaction.user, {})
     await reply
+      // .withEmbeds(
+      //   {
+      //     title: 'Discord',
+      //     color: 0x5865f2,
+      //     description: profile.discordTag,
+      //   },
+      //   {
+      //     title: 'GitHub',
+      //     color: 0x24292e,
+      //     description: profile.githubUser
+      //       ? `@${profile.githubUser.login}`
+      //       : '(Not linked)',
+      //     url: profile.githubUser
+      //       ? `https://github.com/${profile.githubUser.login}`
+      //       : undefined,
+      //   },
+      // )
       .withEmbeds(
         {
-          title: 'Discord',
-          color: 0x5865f2,
-          description: profile.discordTag,
+          title: profile.discordTag,
+          color: 0xffcf56,
+          description: '',
+          fields: [
+            {
+              name: 'GitHub',
+              value: profile.githubUser
+                ? `↳ [@${profile.githubUser.login}](https://github.com/${profile.githubUser.login})`
+                : '↳ (Not linked)',
+              inline: true,
+            },
+            {
+              name: 'Key',
+              value: '↳ Value',
+              inline: true,
+            },
+          ],
         },
-        {
-          title: 'GitHub',
-          color: 0x24292e,
-          description: profile.githubUser
-            ? `@${profile.githubUser.login}`
-            : '(Not linked)',
-          url: profile.githubUser
-            ? `https://github.com/${profile.githubUser.login}`
-            : undefined,
-        },
+        // {
+        //   title: 'GitHub',
+        //   color: 0x24292e,
+        //   description: profile.githubUser
+        //     ? `@${profile.githubUser.login}`
+        //     : '(Not linked)',
+        //   url: profile.githubUser
+        //     ? `https://github.com/${profile.githubUser.login}`
+        //     : undefined,
+        // },
       )
       .withComponents({
         type: 'ACTION_ROW',
@@ -44,9 +75,10 @@ export default definePlugin((bot) => {
         ],
       })
       .ok(
-        'Here is your profile: ```' +
-          JSON.stringify(profile, null, 2) +
-          '```\n',
+        'Here is your profile info:',
+        // 'Here is your profile: ```' +
+        //   JSON.stringify(profile, null, 2) +
+        //   '```\n',
       )
   })
   bot.handleButton('link-github', async (context, interaction, reply) => {
@@ -57,6 +89,19 @@ export default definePlugin((bot) => {
         `Please click the link below to link your GitHub account: :arrow_down:`,
       )
   })
+  bot.handleSelectMenu(
+    'profile-action',
+    async (context, interaction, reply) => {
+      // const url = await getGitHubAuthorizeUrl(interaction.user)
+      // await reply
+      //   .withLink('Click here to link your GitHub account', url, url)
+      //   .please(
+      //     `Please click the link below to link your GitHub account: :arrow_down:`,
+      //   )
+      await reply.fail('Unimplement')
+    },
+  )
+
   bot.handleHttpAction('callback/github', async (context, request, reply) => {
     const { db } = context
     const query = request.query as Record<string, string>
