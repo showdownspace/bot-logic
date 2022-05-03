@@ -62,6 +62,27 @@ export default definePlugin((bot) => {
     },
   )
   management(bot).handleManagementCommand(
+    'citw-rm',
+    async (context, interaction, payload, output) => {
+      const uidsToRemove = new Set(
+        Array.from(payload.matchAll(/<@!?(\d+)>/g)).map(
+          (mention) => `discord${mention[1]}`,
+        ),
+      )
+      const stage = await getRoomRef(context)
+        .child('config/stage')
+        .once('value')
+      const actions: Promise<void>[] = []
+      stage.forEach((item) => {
+        if (uidsToRemove.has(item.val())) {
+          actions.push(item.ref.remove())
+        }
+      })
+      const results = await Promise.all(actions)
+      output.puts('Number of people removed from stage: ' + results.length)
+    },
+  )
+  management(bot).handleManagementCommand(
     'citw-status',
     async (context, interaction, payload, output) => {
       const presencePromise = getRoomRef(context)
