@@ -5,9 +5,13 @@ import { clearAllVotes, exportVotes, saveVote } from './vote'
 
 export default definePlugin((bot) => {
   bot.handleCommand('/vote', async (context, interaction, reply) => {
-    const options = [
-      ...(interaction.options.getString('options')?.matchAll(/\d+/g) || []),
-    ].map(([id]) => id)
+    const options = Array.from(
+      new Set(
+        Array.from(
+          interaction.options.getString('options')?.matchAll(/\d+/g) || [],
+        ).map(([id]) => id),
+      ),
+    )
     const allowedOptions = ['1', '2', '3', '4', '5', '6', '7', '8']
     const allowedOptionSet = new Set(allowedOptions)
     const invalidOptions = options.filter((id) => !allowedOptionSet.has(id))
