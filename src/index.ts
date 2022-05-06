@@ -10,6 +10,7 @@ import { deployCommands } from './deploy-commands'
 import { encrypted } from './encrypted'
 import managementPlugin from './management.plugin'
 import profilePlugin from './profile.plugin'
+import registrationPlugin from './registration.plugin'
 import { BotContext } from './types'
 import votePlugin from './vote.plugin'
 
@@ -32,6 +33,7 @@ bot.register(managementPlugin)
 bot.register(profilePlugin)
 bot.register(answerBuzzerPlugin)
 bot.register(codeInTheWindPlugin)
+bot.register(registrationPlugin)
 bot.register(votePlugin)
 
 export async function handleInteraction(

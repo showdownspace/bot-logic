@@ -61,6 +61,12 @@ export async function deployCommands(context: BotContext) {
         subcommand.setName('d').setDescription('Submit an answer choice “D”'),
       ),
     new SlashCommandBuilder()
+      .setName('signup')
+      .setDescription('Signs up to an event')
+      .addStringOption((o) =>
+        o.setName('code').setDescription('Registration code').setRequired(true),
+      ),
+    new SlashCommandBuilder()
       .setName('vote')
       .setDescription('Votes')
       .addStringOption((o) =>
@@ -78,5 +84,5 @@ export async function deployCommands(context: BotContext) {
   await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
     body: commands,
   })
-  return 'Successfully registered application commands.'
+  return 'Successfully registered application commands!!!'
 }
