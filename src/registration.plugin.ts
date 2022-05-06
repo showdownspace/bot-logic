@@ -1,5 +1,6 @@
 import { definePlugin } from './bot'
 import { time } from '@discordjs/builders'
+import { management } from './management'
 
 interface RegistrationCodeEntity {
   _id: string
@@ -7,6 +8,14 @@ interface RegistrationCodeEntity {
   quota: number
   nbf: string
   usedUsers: string[]
+}
+
+interface RegistrationAttemptEntity {
+  timestamp: string
+  userId: string
+  discordUserTag: string
+  registrationCode: string
+  result: string
 }
 
 export default definePlugin((bot) => {
@@ -88,4 +97,43 @@ export default definePlugin((bot) => {
       })
     }
   })
+
+  management(bot).handleManagementCommand(
+    'signup-stats',
+    async (context, interaction, payload, output) => {
+      const { db } = context
+      const code = payload.trim().toUpperCase()
+      if (!code) {
+        output.puts('Please provide a code.')
+        return
+      }
+      const codeRecord = await db
+        .collection<RegistrationCodeEntity>('registration_codes')
+        .findOne({ _id: code })
+      if (!codeRecord) {
+        output.puts('Code not found')
+        return
+      }
+      const used = codeRecord.used
+      const quota = codeRecord.quota
+      output.puts(`Registered: ${used}/${quota}`)
+    },
+  )
+  management(bot).handleManagementCommand(
+    'signup-log',
+    async (context, interaction, payload, output) => {
+      const { db } = context
+      const records = await db
+        .collection<RegistrationAttemptEntity>('registration_attempts')
+        .find()
+        .sort({ _id: -1 })
+        .limit(10)
+        .toArray()
+      for (const record of records) {
+        output.puts(
+          `[${record.timestamp}] ${record.discordUserTag} "${record.registrationCode}" -> ${record.result}`,
+        )
+      }
+    },
+  )
 })
