@@ -64,7 +64,7 @@ export default definePlugin((bot) => {
       const used: number = updatedCodeRecord.value!.used
       const quota: number = updatedCodeRecord.value!.quota
       const ticketsLeft = quota - used + 1
-      if (ticketsLeft) {
+      if (ticketsLeft > 0) {
         result = `Success (${used}/${quota})`
         reply.ok(
           `Successfully registered using the code "${registrationCode}". Congratulations!`,
