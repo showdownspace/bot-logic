@@ -94,8 +94,10 @@ export default definePlugin((bot) => {
       const presence = await presencePromise
       const profiles = await profilesPromise
       const onlineUsers: string[] = []
+      let allUsersCount = 0
       presence.forEach((item) => {
         const timestamp = item.val()
+        allUsersCount++
         if (timestamp >= Date.now() - 60e3) {
           const name = profiles.child(item.key!).child('name').val()
           if (name) {
@@ -104,6 +106,7 @@ export default definePlugin((bot) => {
         }
       })
       onlineUsers.sort()
+      output.puts(`All users count: ${allUsersCount}`)
       output.puts(`Online users count: ${onlineUsers.length}`)
       for (const user of onlineUsers) {
         output.puts(`- ${user}`)
