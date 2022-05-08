@@ -12,4 +12,5 @@ export interface BotContext {
   firebaseAdmin: typeof import('firebase-admin')
   google: typeof google
   googleAuth: typeof google.auth.GoogleAuth
+  processState: Record<string, any>
 }
