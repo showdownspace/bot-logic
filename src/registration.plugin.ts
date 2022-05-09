@@ -8,6 +8,8 @@ interface RegistrationCodeEntity {
   quota: number
   nbf: string
   usedUsers: string[]
+  waitlistRoleId?: string
+  registeredRoleId?: string
 }
 
 interface RegistrationAttemptEntity {
@@ -78,11 +80,31 @@ export default definePlugin((bot) => {
         reply.ok(
           `Successfully registered using the code "${registrationCode}". Congratulations!`,
         )
+        if (codeRecord.registeredRoleId) {
+          interaction.guild?.members
+            .fetch(user.id)
+            .then((member) => {
+              return member.roles.add(codeRecord.registeredRoleId!)
+            })
+            .catch((err) => {
+              log.error({ err }, 'Unable to add to waitlist')
+            })
+        }
       } else {
         result = `Over quota (${used}/${quota})`
         reply.please(
           `Sorry, the registration limit for the code "${registrationCode}" has been reached.\nYou have been put on the waiting list.`,
         )
+        if (codeRecord.waitlistRoleId) {
+          interaction.guild?.members
+            .fetch(user.id)
+            .then((member) => {
+              return member.roles.add(codeRecord.waitlistRoleId!)
+            })
+            .catch((err) => {
+              log.error({ err }, 'Unable to add to waitlist')
+            })
+        }
       }
     } catch (error) {
       log.error({ err: error }, 'Unable to handle command /signup')

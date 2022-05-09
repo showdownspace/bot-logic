@@ -1,4 +1,4 @@
-import { definePlugin } from './bot'
+import { definePlugin, Reply } from './bot'
 import { sendEmailVerificationRequest, verifyEmail } from './email-verification'
 import { enhanceError } from './enhance-error'
 import {
@@ -7,79 +7,105 @@ import {
   verifyGitHubCode,
 } from './github-linking'
 import { verifyIdToken } from './id-token'
-import { syncProfile } from './profile'
+import { MapMemo, MemoSlot, StrongMemo } from './memo-tools'
+import { getInMemoryCacheMap } from './process-state'
+import { ProfileEntity, syncProfile } from './profile'
+import { BotContext } from './types'
+
+function getProfileReplyCache(context: BotContext) {
+  return new MapMemo<string, MemoSlot<Reply>>(
+    getInMemoryCacheMap(context, 'profileReply'),
+    (uid) => new MemoSlot({ ttl: 600e3 }),
+  )
+}
+
+function getNameInRanking(profile: ProfileEntity): string {
+  if (profile.hideInRanking) {
+    return `(anonymous)`
+  }
+  const suffix = (x: string | null | undefined) => (x ? ` (${x})` : '')
+  if (profile.githubUser) {
+    return `@${profile.githubUser.login}${suffix(profile.githubUser.name)}`
+  }
+  return profile.discordTag + suffix(profile.discordNickname)
+}
 
 export default definePlugin((bot) => {
-  bot.handleCommand('/profile', async (context, interaction, reply) => {
-    const profile = await syncProfile(context, interaction.user, {})
+  async function displayProfile(
+    context: BotContext,
+    profile: ProfileEntity,
+    reply: Reply,
+  ) {
     await reply
-      // .withEmbeds(
-      //   {
-      //     title: 'Discord',
-      //     color: 0x5865f2,
-      //     description: profile.discordTag,
-      //   },
-      //   {
-      //     title: 'GitHub',
-      //     color: 0x24292e,
-      //     description: profile.githubUser
-      //       ? `@${profile.githubUser.login}`
-      //       : '(Not linked)',
-      //     url: profile.githubUser
-      //       ? `https://github.com/${profile.githubUser.login}`
-      //       : undefined,
-      //   },
-      // )
-      .withEmbeds(
-        {
-          title: profile.discordTag,
-          color: 0xffcf56,
-          description: '',
-          fields: [
-            {
-              name: 'GitHub',
-              value: profile.githubUser
-                ? `↳ [@${profile.githubUser.login}](https://github.com/${profile.githubUser.login})`
-                : '↳ (Not linked)',
-              inline: true,
-            },
-            {
-              name: 'Key',
-              value: '↳ Value',
-              inline: true,
-            },
-          ],
-        },
-        // {
-        //   title: 'GitHub',
-        //   color: 0x24292e,
-        //   description: profile.githubUser
-        //     ? `@${profile.githubUser.login}`
-        //     : '(Not linked)',
-        //   url: profile.githubUser
-        //     ? `https://github.com/${profile.githubUser.login}`
-        //     : undefined,
-        // },
-      )
-      .withComponents({
-        type: 'ACTION_ROW',
-        components: [
+      .withEmbeds({
+        title: profile.discordTag,
+        color: 0xffcf56,
+        description: '',
+        fields: [
           {
-            type: 'BUTTON',
-            style: profile.githubUser ? 'SECONDARY' : 'PRIMARY',
-            customId: profile.githubUser ? 'unlink-github' : 'link-github',
-            label: profile.githubUser
-              ? 'Unlink GitHub user'
-              : 'Link GitHub user',
+            name: 'GitHub',
+            value: profile.githubUser
+              ? `↳ [@${profile.githubUser.login}](https://github.com/${profile.githubUser.login})`
+              : '↳ (Not linked)',
+            inline: true,
+          },
+          {
+            name: 'Name in ranking',
+            value: `↳ ${getNameInRanking(profile)}`,
+            inline: true,
           },
         ],
       })
-      .ok(
-        'Here is your profile info:',
-        // 'Here is your profile: ```' +
-        //   JSON.stringify(profile, null, 2) +
-        //   '```\n',
-      )
+      .withComponents({
+        type: 'ACTION_ROW',
+        components: [
+          profile.githubUser
+            ? {
+                type: 'BUTTON',
+                style: 'SECONDARY',
+                customId: 'unlink-github',
+                label: 'Unlink GitHub user',
+              }
+            : {
+                type: 'BUTTON',
+                style: 'PRIMARY',
+                customId: 'link-github',
+                label: 'Link GitHub user',
+              },
+          profile.hideInRanking
+            ? {
+                type: 'BUTTON',
+                style: 'PRIMARY',
+                customId: 'show-in-ranking',
+                label: 'Show my name in ranking pages',
+              }
+            : {
+                type: 'BUTTON',
+                style: 'SECONDARY',
+                customId: 'hide-in-ranking',
+                label: 'Hide my name in ranking pages',
+              },
+        ],
+      })
+      .ok('Here is your profile info:')
+  }
+
+  async function updateProfileReplyIfExist(
+    context: BotContext,
+    profile: ProfileEntity,
+  ) {
+    const reply = getProfileReplyCache(context).get(profile._id).get()
+    if (reply) {
+      await displayProfile(context, profile, reply).catch((e) => {
+        context.log.error({ err: e }, 'Unable to update profile reply')
+      })
+    }
+  }
+
+  bot.handleCommand('/profile', async (context, interaction, reply) => {
+    const profile = await syncProfile(context, interaction.user, {})
+    displayProfile(context, profile, reply)
+    getProfileReplyCache(context).get(profile._id).set(reply)
   })
   bot.handleButton('link-github', async (context, interaction, reply) => {
     const url = await getGitHubAuthorizeUrl(interaction.user)
@@ -89,21 +115,7 @@ export default definePlugin((bot) => {
         `Please click the link below to link your GitHub account: :arrow_down:`,
       )
   })
-  bot.handleSelectMenu(
-    'profile-action',
-    async (context, interaction, reply) => {
-      // const url = await getGitHubAuthorizeUrl(interaction.user)
-      // await reply
-      //   .withLink('Click here to link your GitHub account', url, url)
-      //   .please(
-      //     `Please click the link below to link your GitHub account: :arrow_down:`,
-      //   )
-      await reply.fail('Unimplement')
-    },
-  )
-
   bot.handleHttpAction('callback/github', async (context, request, reply) => {
-    const { db } = context
     const query = request.query as Record<string, string>
     const code = String(query.code)
     const state = String(query.state)
@@ -113,27 +125,44 @@ export default definePlugin((bot) => {
     ).catch(enhanceError('Unable to verify ID token'))
     const { accessToken } = await verifyGitHubCode(code)
     const user = await getGitHubProfile(accessToken)
-    await db.collection('profiles').updateOne(
-      { _id: `discord${owner.discordId}` },
+    const profile = await syncProfile(
+      context,
+      { id: owner.discordId, tag: owner.discordTag },
       {
-        $set: {
-          discordUserId: owner.discordId,
-          discordTag: owner.discordTag,
-          githubUser: {
-            login: user.login,
-            id: user.id,
-            avatar_url: user.avatar_url,
-            name: user.name,
-          },
+        githubUser: {
+          login: user.login,
+          id: user.id,
+          avatar_url: user.avatar_url,
+          name: user.name,
         },
       },
-      { upsert: true },
     )
+    await updateProfileReplyIfExist(context, profile)
     return `Successfully linked GitHub account "@${user.login}" for Discord user "${owner.discordTag}"`
   })
   bot.handleButton('unlink-github', async (context, interaction, reply) => {
-    await syncProfile(context, interaction.user, { githubUser: null })
+    const profile = await syncProfile(context, interaction.user, {
+      githubUser: null,
+    })
+    await updateProfileReplyIfExist(context, profile)
     await reply.ok(`Unassociated your GitHub account from your Discord ID.`)
+  })
+  bot.handleButton('hide-in-ranking', async (context, interaction, reply) => {
+    const profile = await syncProfile(context, interaction.user, {
+      hideInRanking: true,
+    })
+    await updateProfileReplyIfExist(context, profile)
+    await reply.ok(
+      `Your name will be hidden in ranking pages.\n` +
+        `**Note:** This only applies to the ranking page; your name will still be visible in the live stream. This setting will not affect past events.`,
+    )
+  })
+  bot.handleButton('show-in-ranking', async (context, interaction, reply) => {
+    const profile = await syncProfile(context, interaction.user, {
+      hideInRanking: false,
+    })
+    await updateProfileReplyIfExist(context, profile)
+    await reply.ok(`Your name will be shown in ranking pages.`)
   })
 
   bot.handleCommand(

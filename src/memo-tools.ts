@@ -23,23 +23,40 @@ export class WeakMemo<K extends object, V> extends MapMemo<K, V> {
   }
 }
 
-export class StrongMemo<K extends object, V> extends MapMemo<K, V> {
+export class StrongMemo<K, V> extends MapMemo<K, V> {
   constructor(factory: (key: K) => V) {
     super(new Map<K, V>(), factory)
   }
 }
 
-export class MemoValue<T> {
-  constructor(public value: T) {}
+class MemoValue<T> {
+  private expiresAt?: number
+  constructor(public value: T, ttl?: number) {
+    if (ttl) {
+      this.expiresAt = Date.now() + ttl
+    }
+  }
+  isActive(): boolean {
+    return !!this.expiresAt && Date.now() > this.expiresAt
+  }
 }
 
 export class MemoSlot<T> {
   private state: MemoValue<T> | undefined
-  constructor() {}
+  private ttl?: number
+  constructor(options: { ttl?: number } = {}) {
+    this.ttl = options.ttl
+  }
   getOrCreate(factory: () => T): T {
-    if (this.state === undefined) {
-      this.state = new MemoValue(factory())
+    if (!this.state?.isActive()) {
+      this.state = new MemoValue(factory(), this.ttl)
     }
     return this.state.value
+  }
+  set(value: T): void {
+    this.state = new MemoValue(value, this.ttl)
+  }
+  get() {
+    return this.state?.value
   }
 }
