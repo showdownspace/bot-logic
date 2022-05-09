@@ -50,6 +50,29 @@ export default definePlugin((bot) => {
     },
   )
   management(bot).handleManagementCommand(
+    'citw-ref',
+    async (context, interaction, payload, output) => {
+      await getRoomRef(context)
+        .child('config/refImage')
+        .set(payload.trim() || null)
+      output.puts('Reference image set')
+    },
+  )
+  management(bot).handleManagementCommand(
+    'citw-reveal',
+    async (context, interaction, payload, output) => {
+      await getRoomRef(context).child('config/namesRevealed').set(true)
+      output.puts('Revealed')
+    },
+  )
+  management(bot).handleManagementCommand(
+    'citw-conceal',
+    async (context, interaction, payload, output) => {
+      await getRoomRef(context).child('config/namesRevealed').set(false)
+      output.puts('Concealed')
+    },
+  )
+  management(bot).handleManagementCommand(
     'citw-add',
     async (context, interaction, payload, output) => {
       let added = 0

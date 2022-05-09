@@ -11,6 +11,7 @@ import { encrypted } from './encrypted'
 import managementPlugin from './management.plugin'
 import profilePlugin from './profile.plugin'
 import registrationPlugin from './registration.plugin'
+import rtSysPlugin from './rt-sys.plugin'
 import { BotContext } from './types'
 import votePlugin from './vote.plugin'
 
@@ -30,6 +31,7 @@ bot.handleHttpAction('encrypt', async (context, request, reply) => {
   <input type="submit" value="Encrypt" />`
 })
 bot.register(managementPlugin)
+bot.register(rtSysPlugin)
 bot.register(profilePlugin)
 bot.register(answerBuzzerPlugin)
 bot.register(codeInTheWindPlugin)
