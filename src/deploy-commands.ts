@@ -78,6 +78,15 @@ export async function deployCommands(context: BotContext) {
     new SlashCommandBuilder()
       .setName('profile')
       .setDescription('View your showdown.space profile'),
+    new SlashCommandBuilder()
+      .setName('github')
+      .setDescription('List GitHub users')
+      .addStringOption((o) =>
+        o
+          .setName('users')
+          .setDescription('Target Discord users (default: all online people)')
+          .setRequired(false),
+      ),
   ].map((command) => command.toJSON())
 
   const rest = new REST({ version: '9' }).setToken(context.discordToken)

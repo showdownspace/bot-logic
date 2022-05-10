@@ -51,3 +51,22 @@ export async function syncProfile(
     )
   return result.value!
 }
+
+export async function findGitHubInfo(
+  context: BotContext,
+  discordUserIds: string[],
+) {
+  const { db } = context
+  return db
+    .collection<ProfileEntity>('profiles')
+    .find({
+      'githubUser.login': { $exists: true },
+      _id: { $in: discordUserIds.map((id) => `discord${id}`) },
+    })
+    .project<Pick<ProfileEntity, '_id' | 'discordUserId' | 'githubUser'>>({
+      _id: true,
+      discordUserId: true,
+      githubUser: true,
+    })
+    .toArray()
+}

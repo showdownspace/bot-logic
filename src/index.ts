@@ -8,7 +8,12 @@ import { Bot } from './bot'
 import codeInTheWindPlugin from './code-in-the-wind.plugin'
 import { deployCommands } from './deploy-commands'
 import { encrypted } from './encrypted'
+import {
+  getLastMessageTimestampMap,
+  saveLastMessageTimestamp,
+} from './last-message-cache'
 import managementPlugin from './management.plugin'
+import { createIndexes } from './mongodb-indexes'
 import profilePlugin from './profile.plugin'
 import registrationPlugin from './registration.plugin'
 import rtSysPlugin from './rt-sys.plugin'
@@ -67,6 +72,8 @@ export async function handleMessage(context: BotContext, message: Message) {
     return
   }
 
+  saveLastMessageTimestamp(context, message.author.id)
+
   const guild = message.guild
   let isAdmin = message.author.id === '104986860236877824'
 
@@ -90,6 +97,9 @@ export async function handleMessage(context: BotContext, message: Message) {
             google,
             log: log.child({ name: 'code-eval' }),
             deployCommands: () => deployCommands(context),
+            createIndexes: () => createIndexes(context),
+            getLastMessageTimestampMap: () =>
+              getLastMessageTimestampMap(context),
           },
           m[1],
         )
@@ -98,7 +108,12 @@ export async function handleMessage(context: BotContext, message: Message) {
         replyText = '```\n' + String(error) + '\n```'
         log.error({ err: error }, 'Code evaluation failed')
       }
-      message.reply(replyText)
+      try {
+        await message.reply(replyText)
+      } catch (error) {
+        log.error({ err: error }, 'Unable to reply to code evaluation')
+        await message.reply(`${error}`).catch(() => {})
+      }
       return
     }
   }

@@ -9,7 +9,7 @@ import {
 import { verifyIdToken } from './id-token'
 import { MapMemo, MemoSlot, StrongMemo } from './memo-tools'
 import { getInMemoryCacheMap } from './process-state'
-import { ProfileEntity, syncProfile } from './profile'
+import { findGitHubInfo, ProfileEntity, syncProfile } from './profile'
 import { BotContext } from './types'
 
 function getProfileReplyCache(context: BotContext) {
@@ -213,4 +213,31 @@ export default definePlugin((bot) => {
       }
     },
   )
+  bot.handleCommand('/github', async (context, interaction, reply) => {
+    //   db.collection('profiles').find({ 'githubUser.login': { $exists: true } })
+    // .project({ discordUserId: true, githubUser: true })
+    // .toArray()
+    const users = interaction.options.getString('users', false) || ''
+    const mentions = Array.from(users.matchAll(/<@!?(\d+)>/g)).map(
+      (mention) => `${mention[1]}`,
+    )
+
+    const targetUserIds = mentions.length
+      ? mentions
+      : await interaction.guild!.members.fetch().then((m) =>
+          Array.from(m.values())
+            .filter((m) => {
+              const s = m.presence?.status
+              return s && s !== 'offline'
+            })
+            .map((x) => x.id),
+        )
+    const githubInfo = await findGitHubInfo(context, targetUserIds)
+    const list = githubInfo
+      .map((g) => {
+        return `\n<@${g.discordUserId}> - @${g.githubUser!.login}`
+      })
+      .join('')
+    reply.ok(`Number of users found: ${githubInfo.length}${list}`)
+  })
 })
