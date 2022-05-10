@@ -7,9 +7,14 @@ import {
   verifyGitHubCode,
 } from './github-linking'
 import { verifyIdToken } from './id-token'
-import { MapMemo, MemoSlot, StrongMemo } from './memo-tools'
+import { MapMemo, MemoSlot } from './memo-tools'
 import { getInMemoryCacheMap } from './process-state'
-import { findGitHubInfo, ProfileEntity, syncProfile } from './profile'
+import {
+  findGitHubInfo,
+  ProfileEntity,
+  syncGitHubDirectory,
+  syncProfile,
+} from './profile'
 import { BotContext } from './types'
 
 function getProfileReplyCache(context: BotContext) {
@@ -138,6 +143,7 @@ export default definePlugin((bot) => {
       },
     )
     await updateProfileReplyIfExist(context, profile)
+    await syncGitHubDirectory(context)
     return `Successfully linked GitHub account "@${user.login}" for Discord user "${owner.discordTag}"`
   })
   bot.handleButton('unlink-github', async (context, interaction, reply) => {
@@ -145,6 +151,7 @@ export default definePlugin((bot) => {
       githubUser: null,
     })
     await updateProfileReplyIfExist(context, profile)
+    await syncGitHubDirectory(context)
     await reply.ok(`Unassociated your GitHub account from your Discord ID.`)
   })
   bot.handleButton('hide-in-ranking', async (context, interaction, reply) => {
@@ -239,5 +246,8 @@ export default definePlugin((bot) => {
       })
       .join('')
     reply.ok(`Number of users found: ${githubInfo.length}${list}`)
+  })
+  bot.handleHttpAction('ghsync', async (context) => {
+    return 'endpoint disabled' || syncGitHubDirectory(context)
   })
 })

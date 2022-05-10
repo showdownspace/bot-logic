@@ -1,4 +1,6 @@
-import { User } from 'discord.js'
+import { Comparator } from '@dtinth/comparator'
+import { TextChannel, User } from 'discord.js'
+import throttle from 'lodash.throttle'
 import { guildId } from './config'
 import { BotContext } from './types'
 
@@ -54,19 +56,76 @@ export async function syncProfile(
 
 export async function findGitHubInfo(
   context: BotContext,
-  discordUserIds: string[],
+  discordUserIds?: string[],
 ) {
   const { db } = context
   return db
     .collection<ProfileEntity>('profiles')
     .find({
       'githubUser.login': { $exists: true },
-      _id: { $in: discordUserIds.map((id) => `discord${id}`) },
+      ...(discordUserIds
+        ? { _id: { $in: discordUserIds.map((id) => `discord${id}`) } }
+        : {}),
     })
-    .project<Pick<ProfileEntity, '_id' | 'discordUserId' | 'githubUser'>>({
+    .project<
+      Pick<ProfileEntity, '_id' | 'discordUserId' | 'discordTag' | 'githubUser'>
+    >({
       _id: true,
       discordUserId: true,
+      discordTag: true,
       githubUser: true,
     })
     .toArray()
 }
+
+async function doSyncGitHubDirectory(context: BotContext) {
+  const messageIds = [
+    '973597769518415892',
+    '973597790255058944',
+    '973598007238991882',
+    '973598011886272562',
+    '973598017020133436',
+    '973598021839364186',
+    '973598026637660190',
+    '973598031448506429',
+    '973598036339089439',
+    '973598040726315109',
+    '973598045608480788',
+    '973598050507432047',
+    '973598055284748308',
+    '973598060351488100',
+    '973598065116205067',
+    '973598070015152220',
+    '973598074750504990',
+    '973598079867572225',
+    '973598084749754379',
+    '973598089585770567',
+  ]
+  const info = await findGitHubInfo(context)
+  const channel = (await context.client.guilds
+    .resolve(guildId)!
+    .channels.fetch('973597074354483230')!) as TextChannel
+  const last = await channel.messages.fetch(messageIds.pop()!)
+  await last.edit(
+    '**To link your GitHub account and appear on this list, run the `/profile` slash command.**',
+  )
+
+  const listMessage = await channel.messages.fetch(messageIds.pop()!)
+  const text = info
+    .map((data) => {
+      const login = data.githubUser!.login
+      const suffix = '' // data.githubUser!.name ? ` (${data.githubUser!.name})` : ''
+      return [
+        `・ <@${data.discordUserId}> — https://github.com/${login}${suffix}`,
+        data.discordTag,
+      ]
+    })
+    .sort(Comparator.comparing((x) => x[1].toLowerCase()))
+    .map((x) => x[0])
+  listMessage.edit({
+    content: text.join('\n'),
+  })
+  return info
+}
+
+export const syncGitHubDirectory = throttle(doSyncGitHubDirectory, 10000)
