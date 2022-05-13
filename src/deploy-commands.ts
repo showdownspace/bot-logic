@@ -76,6 +76,12 @@ export async function deployCommands(context: BotContext) {
           .setRequired(true),
       ),
     new SlashCommandBuilder()
+      .setName('encrypt')
+      .setDescription('Encrypt some text (only staff can decrypt)')
+      .addStringOption((o) =>
+        o.setName('text').setDescription('Text to encrypt').setRequired(true),
+      ),
+    new SlashCommandBuilder()
       .setName('profile')
       .setDescription('View your showdown.space profile'),
     new SlashCommandBuilder()

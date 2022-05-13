@@ -228,7 +228,6 @@ export default definePlugin((bot) => {
     const mentions = Array.from(users.matchAll(/<@!?(\d+)>/g)).map(
       (mention) => `${mention[1]}`,
     )
-
     const targetUserIds = mentions.length
       ? mentions
       : await interaction.guild!.members.fetch().then((m) =>

@@ -21,6 +21,14 @@ import { BotContext } from './types'
 import votePlugin from './vote.plugin'
 
 const bot = new Bot()
+bot.handleCommand('/encrypt', async (context, interaction, reply) => {
+  const text = interaction.options.getString('text')
+  await reply.ok(
+    '```\n[ss|' +
+      encrypted.encrypt([Date.now(), interaction.user.id, text]) +
+      '|gg]\n```',
+  )
+})
 bot.handleCommand('/showdown ping', async (context, interaction, reply) => {
   await reply.wait('wait for it')
   await reply.ok('pong')
