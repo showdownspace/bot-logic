@@ -41,6 +41,17 @@ export default definePlugin((bot) => {
     },
   )
   management(bot).handleManagementCommand(
+    'citw-reset',
+    async (context, interaction, payload, output) => {
+      output.makePublic()
+      const snapshot = await getRoomRef(context).once('value')
+      const filename = await writeBackup(context, 'citw', snapshot.val() || {})
+      output.puts(`Database backup saved to "${filename}"`)
+      await getRoomRef(context).set(null)
+      output.puts('Database reset')
+    },
+  )
+  management(bot).handleManagementCommand(
     'citw-lock',
     async (context, interaction, payload, output) => {
       await getRoomRef(context)
