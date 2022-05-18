@@ -10,7 +10,9 @@ const GITHUB_CLIENT_SECRET = encrypted`
 cR+XPt/pf3Los7eGa0oLicOAICYeDK95.inCkXVAmKnw32o6TBDvyo0j3PJCpj
 ltfET78Hz3X7HmN2xBe5XsfhCYio9YrOUttpOQbU/6d9FDIwg==`
 
-const REDIRECT_URI = `https://bot.showdown.space/showdown?action=callback/github`
+// const REDIRECT_URI = `https://bot.showdown.space/showdown?action=callback/github`
+// const REDIRECT_URI = `https://showdownspace-bot.fly.dev/showdown?action=callback/github`
+const REDIRECT_URI = `https://showdownspace-bot.wonderful.software/showdown?action=callback/github`
 
 export async function getGitHubAuthorizeUrl(user: User): Promise<string> {
   const state = await mintIdToken(user, 'showdownspace-bot/github-linking')

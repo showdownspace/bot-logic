@@ -145,11 +145,13 @@ export default definePlugin((bot) => {
     'signup-log',
     async (context, interaction, payload, output) => {
       const { db } = context
+      const params = payload.split(/\s+/)
       const records = await db
         .collection<RegistrationAttemptEntity>('registration_attempts')
         .find()
         .sort({ _id: -1 })
-        .limit(10)
+        .skip(+params[1] > 0 ? +params[1] : 0)
+        .limit(+params[0] > 0 ? +params[0] : 10)
         .toArray()
       for (const record of records) {
         output.puts(

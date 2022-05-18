@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { Interaction, Message } from 'discord.js'
+import { Interaction, Message, MessageAttachment } from 'discord.js'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 
 import { inspect } from 'util'
@@ -95,6 +95,7 @@ export async function handleMessage(context: BotContext, message: Message) {
       try {
         const result = await fn(
           {
+            MessageAttachment,
             message,
             client,
             guild,

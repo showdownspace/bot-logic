@@ -12,6 +12,7 @@ const sentHash = new Set()
 const compact = true
 const watcher = watch({
   input: './src/index.ts',
+  external: ['discord.js'],
   plugins: [esbuild({ minify: compact }), nodeResolve(), commonjs(), json()],
   output: {
     dir: 'dist',
@@ -112,7 +113,7 @@ async function doDeploy(files) {
     token: deployToken,
   }
   const response = await axios.post(
-    'https://showdownspace-bot.glitch.me/deploy',
+    'https://showdownspace-bot.wonderful.software/deploy',
     data,
     { validateStatus: () => true },
   )

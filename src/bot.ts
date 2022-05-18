@@ -32,7 +32,7 @@ export class Bot {
         return
       }
       return async () => {
-        const reply: Reply = new Reply(interaction)
+        const reply: Reply = new Reply(context, interaction)
         try {
           await commandHandler(context, interaction, reply)
         } catch (error) {
@@ -51,7 +51,7 @@ export class Bot {
         return
       }
       return async () => {
-        const reply: Reply = new Reply(interaction)
+        const reply: Reply = new Reply(context, interaction)
         try {
           await buttonHandler(context, interaction, reply)
         } catch (error) {
@@ -73,7 +73,7 @@ export class Bot {
         return
       }
       return async () => {
-        const reply: Reply = new Reply(interaction)
+        const reply: Reply = new Reply(context, interaction)
         try {
           await selectMenuHandler(context, interaction, reply)
         } catch (error) {
@@ -156,6 +156,7 @@ export class Reply {
   private ephemeral = true
   private requiresFollowUp = false
   constructor(
+    private context: BotContext,
     private interaction:
       | CommandInteraction
       | ButtonInteraction
@@ -169,24 +170,28 @@ export class Reply {
     this.ephemeral = false
   }
   async writeText(content: string) {
-    if (this.requiresFollowUp) {
-      await this.interaction.followUp({
-        content: content,
-        ephemeral: this.ephemeral,
-        ...this.extraParams,
-      })
-    } else if (this.written) {
-      await this.interaction.editReply({
-        content: content,
-        ...this.extraParams,
-      })
-    } else {
-      await this.interaction.reply({
-        content: content,
-        ephemeral: this.ephemeral,
-        ...this.extraParams,
-      })
-      this.written = true
+    try {
+      if (this.requiresFollowUp) {
+        await this.interaction.followUp({
+          content: content,
+          ephemeral: this.ephemeral,
+          ...this.extraParams,
+        })
+      } else if (this.written) {
+        await this.interaction.editReply({
+          content: content,
+          ...this.extraParams,
+        })
+      } else {
+        await this.interaction.reply({
+          content: content,
+          ephemeral: this.ephemeral,
+          ...this.extraParams,
+        })
+        this.written = true
+      }
+    } catch (error) {
+      this.context.log.error({ err: error }, 'Unable to write text')
     }
   }
 

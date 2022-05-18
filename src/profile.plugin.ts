@@ -247,6 +247,7 @@ export default definePlugin((bot) => {
     reply.ok(`Number of users found: ${githubInfo.length}${list}`)
   })
   bot.handleHttpAction('ghsync', async (context) => {
-    return 'endpoint disabled' || syncGitHubDirectory(context)
+    // return 'endpoint disabled'
+    return syncGitHubDirectory(context)
   })
 })
