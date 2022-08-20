@@ -78,6 +78,11 @@ export async function findGitHubInfo(
     .toArray()
 }
 
+export async function exportAllProfile(context: BotContext) {
+  const { db } = context
+  return db.collection<ProfileEntity>('profiles').find().toArray()
+}
+
 async function doSyncGitHubDirectory(context: BotContext) {
   try {
     const messageIds = [

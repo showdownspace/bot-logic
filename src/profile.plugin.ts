@@ -1,3 +1,4 @@
+import { encrypted } from './encrypted'
 import { definePlugin, Reply } from './bot'
 import { sendEmailVerificationRequest, verifyEmail } from './email-verification'
 import { enhanceError } from './enhance-error'
@@ -10,12 +11,15 @@ import { verifyIdToken } from './id-token'
 import { MapMemo, MemoSlot } from './memo-tools'
 import { getInMemoryCacheMap } from './process-state'
 import {
+  exportAllProfile,
   findGitHubInfo,
   ProfileEntity,
   syncGitHubDirectory,
   syncProfile,
 } from './profile'
 import { BotContext } from './types'
+import { dump } from 'js-yaml'
+import { Comparator } from '@dtinth/comparator'
 
 function getProfileReplyCache(context: BotContext) {
   return new MapMemo<string, MemoSlot<Reply>>(
@@ -247,7 +251,50 @@ export default definePlugin((bot) => {
     reply.ok(`Number of users found: ${githubInfo.length}${list}`)
   })
   bot.handleHttpAction('ghsync', async (context) => {
-    // return 'endpoint disabled'
+    return 'endpoint disabled'
     return syncGitHubDirectory(context)
+  })
+  const exportKey = encrypted`HzrSJaCVasxE3Tiqcg9J8xoIzVFE8qUy.al81wnhLhho+VL9RzA8V44gyk/jxhXp+s09LbZenuGeZW+BGnIF49Ta4vCRAp4X5Rzs2+g1i/iv/zm6OupWj9nRcQ3qDfiPqsWWXLGvtEM1gPw==`
+  bot.handleHttpAction('export-profiles', async (context, request, reply) => {
+    const query = request.query as any
+    if (exportKey !== query.key) {
+      return 'nope'
+    }
+    const ids = String(query.ids || '')
+      .split(',')
+      .map((x) => x)
+    let profiles = await exportAllProfile(context)
+    if (ids.length > 0) {
+      profiles = profiles.filter((x) => ids.includes(x.discordUserId))
+    }
+    const output: Record<string, any> = {}
+    for (const profile of profiles) {
+      output[profile._id] = {
+        discordTag: profile.discordTag,
+        participant: profile.hideInRanking
+          ? 'anonymous'
+          : profile.githubUser
+          ? {
+              handle: profile.githubUser.login,
+              handleUrl: `https://github.com/${profile.githubUser.login}`,
+              name: profile.githubUser.name,
+            }
+          : {
+              handle: profile.discordTag,
+            },
+        '--': '---------------',
+      }
+    }
+    if (query.as === 'array') {
+      return dump({
+        participants: Object.values(output)
+          .map((x) => x.participant)
+          .sort(
+            Comparator.comparing((x) => String(x.handle || x).toLowerCase()),
+          ),
+      })
+    } else {
+      return dump(output)
+    }
   })
 })
