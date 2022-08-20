@@ -19,6 +19,7 @@ import registrationPlugin from './registration.plugin'
 import rtSysPlugin from './rt-sys.plugin'
 import { BotContext } from './types'
 import votePlugin from './vote.plugin'
+import eventpopPlugin from './eventpop.plugin'
 
 const bot = new Bot()
 bot.handleCommand('/encrypt', async (context, interaction, reply) => {
@@ -50,6 +51,7 @@ bot.register(answerBuzzerPlugin)
 bot.register(codeInTheWindPlugin)
 bot.register(registrationPlugin)
 bot.register(votePlugin)
+bot.register(eventpopPlugin)
 
 export async function handleInteraction(
   context: BotContext,

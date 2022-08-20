@@ -93,6 +93,9 @@ export async function deployCommands(context: BotContext) {
           .setDescription('Target Discord users (default: all online people)')
           .setRequired(false),
       ),
+    new SlashCommandBuilder()
+      .setName('eventpop')
+      .setDescription('Link an Eventpop ticket'),
   ].map((command) => command.toJSON())
 
   const rest = new REST({ version: '9' }).setToken(context.discordToken)
